@@ -1,3 +1,4 @@
+"use client";
 import { DashboardView } from "@/components/dashboard-view";
 import { getCumulativeSubjects, getDashboardSummary } from "@/lib/api";
 
