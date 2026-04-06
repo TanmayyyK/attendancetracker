@@ -1,7 +1,11 @@
 import { CumulativeSubjectCard, DashboardSummary, MonthlySnapshot, SubjectCard } from "@/types/dashboard";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
-
+// If we are on Vercel, use the relative /api path that vercel.json routes to Python.
+// If we are on your local Mac, use the localhost FastAPI server.
+// Dynamically set the API base path
+const API_BASE = process.env.NODE_ENV === "production" 
+  ? "/api" 
+  : "http://localhost:8000/api";
 const EMPTY_SUMMARY: DashboardSummary = {
   overall: { total: 0, present: 0, absent: 0, percentage: 0, streak: 0 },
   subject_cards: [],
