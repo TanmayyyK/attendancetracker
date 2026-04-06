@@ -1,0 +1,48 @@
+# ========================
+# OS / System Files
+# ========================
+.DS_Store
+
+# ========================
+# Backend (Python / FastAPI)
+# ========================
+# Virtual environment
+backend/.venv/
+
+# Compiled Python files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+backend/.env
+
+# Local Database & Data backups
+# (Keeps your actual attendance data private!)
+backend/attendance_ultra.db
+backend/attendance_ultra.db-journal
+backend/attendance_log.csv
+
+# ========================
+# Frontend (Next.js / React)
+# ========================
+# Node dependencies
+frontend/node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+frontend/build/
+
+# TypeScript build cache
+frontend/tsconfig.tsbuildinfo
+
+# Environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Vercel deployment folder
+frontend/.vercel/
