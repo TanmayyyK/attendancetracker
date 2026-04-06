@@ -4,9 +4,7 @@ import { CumulativeSubjectCard, DashboardSummary, MonthlySnapshot, SubjectCard }
 // If we are on your local Mac, use the localhost FastAPI server.
 // Dynamically set the API base path
 // Dynamically set the API base path
-const API_BASE = process.env.NODE_ENV === "production" 
-  ? "https://attendancetracker-gamma.vercel.app/api" 
-  : "http://localhost:8000/api";
+const API_BASE = "/api";
 const EMPTY_SUMMARY: DashboardSummary = {
   overall: { total: 0, present: 0, absent: 0, percentage: 0, streak: 0 },
   subject_cards: [],
