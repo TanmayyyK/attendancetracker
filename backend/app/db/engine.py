@@ -12,20 +12,20 @@ def _build_engine():
         db_url = db_url.replace("libsql://", "sqlite+libsql://", 1)
     elif db_url.startswith("https://"):
         db_url = db_url.replace("https://", "sqlite+libsql://", 1)
-        
-    # Auto-inject the Auth Token if it's stored in a separate TURSO_AUTH_TOKEN variable
-    turso_token = os.getenv("TURSO_AUTH_TOKEN")
-    if turso_token and "authToken=" not in db_url:
-        separator = "&" if "?" in db_url else "?"
-        db_url = f"{db_url}{separator}authToken={turso_token}"
 
     connect_args = {}
     
+    # Auto-inject the Auth Token strictly through connection arguments to prevent 401s
+    turso_token = os.getenv("TURSO_AUTH_TOKEN")
+    if turso_token and "libsql" in db_url:
+        connect_args["auth_token"] = turso_token
+    
     # Only apply local threading rules if it's actually a local offline file
     if db_url.startswith("sqlite:///"):
-        connect_args = {"check_same_thread": False}
+        connect_args["check_same_thread"] = False
         
     return create_engine(db_url, connect_args=connect_args, echo=False)
+
 
 engine = _build_engine()
 
