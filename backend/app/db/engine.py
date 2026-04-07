@@ -13,6 +13,12 @@ def _build_engine():
     elif db_url.startswith("https://"):
         db_url = db_url.replace("https://", "sqlite+libsql://", 1)
         
+    # Auto-inject the Auth Token if it's stored in a separate TURSO_AUTH_TOKEN variable
+    turso_token = os.getenv("TURSO_AUTH_TOKEN")
+    if turso_token and "authToken=" not in db_url:
+        separator = "&" if "?" in db_url else "?"
+        db_url = f"{db_url}{separator}authToken={turso_token}"
+
     connect_args = {}
     
     # Only apply local threading rules if it's actually a local offline file
