@@ -186,50 +186,11 @@ export function DashboardView({
       </motion.section>
 
       <section className="glass-card p-6">
-        <div className="mb-4">
-          <h2 className="text-xl font-semibold">📚 Cumulative Performance</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">Subject-level cumulative attendance.</p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {cumulativeSubjects.map((s) => {
-            const safe = s.percentage >= 75;
-            const width = Math.max(0, Math.min(100, s.percentage));
-            return (
-              <div key={s.subject} className="rounded-xl border border-slate-200/50 p-4 dark:border-white/10">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">{s.subject}</p>
-                  <span
-                    className={`rounded-full border px-2.5 py-1 font-mono text-xs ${
-                      safe
-                        ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                        : "border-rose-400/30 bg-rose-400/10 text-rose-300"
-                    }`}
-                  >
-                    {s.percentage.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="mt-3 h-2 overflow-hidden rounded bg-slate-200 dark:bg-white/10">
-                  <div
-                    className={`h-full rounded ${safe ? "bg-emerald-500" : "bg-rose-500"}`}
-                    style={{ width: `${width}%` }}
-                  />
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span className="font-mono">
-                    {Number.isInteger(s.present) ? s.present : s.present.toFixed(1)}/
-                    {Number.isInteger(s.total) ? s.total : s.total.toFixed(1)}
-                  </span>
-                  <span className={safe ? "text-emerald-300" : "text-rose-300"}>{s.status_hint}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="glass-card p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">At-a-Glance Subject Cards</h2>
+          <div>
+            <h2 className="text-xl font-bold">Subject-Wise Analytics</h2>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Your core academic performance by subject.</p>
+          </div>
           <button
             className="touch-target group flex items-center gap-2 rounded-2xl bg-violet-600 px-6 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition hover:bg-violet-500 active:scale-95"
             type="button"
@@ -239,10 +200,81 @@ export function DashboardView({
           </button>
         </div>
         {logMessage ? (
-          <div className="mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
             {logMessage}
           </div>
         ) : null}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+          {cumulativeSubjects.map((s, i) => {
+            const width = Math.max(0, Math.min(100, s.percentage));
+            return (
+              <motion.div
+                key={s.subject}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+                className="glass-card hover-lift flex h-full flex-col p-5 sm:p-6"
+              >
+                <div className="flex flex-col h-full">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <h3 className="line-clamp-2 text-base sm:text-lg font-semibold leading-tight text-slate-800 dark:text-slate-200">
+                      {s.subject}
+                    </h3>
+                    <span className={`text-xl sm:text-2xl font-bold tracking-tight ${colorForPercentage(s.percentage)}`}>
+                      {s.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  
+                  <div className="mb-6 flex-1 space-y-3 text-sm">
+                    <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-800/30 px-3 py-1.5 rounded-lg">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs">Total Classes</span>
+                      <span className="font-semibold">{Number.isInteger(s.total) ? s.total : s.total.toFixed(1)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 dark:text-slate-400">Present</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{Number.isInteger(s.present) ? s.present : s.present.toFixed(1)}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto space-y-3">
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-400">Status</span>
+                      <span
+                        className={
+                          s.percentage >= 75
+                            ? "text-emerald-500"
+                            : s.percentage >= 65
+                              ? "text-amber-500"
+                              : "text-rose-500"
+                        }
+                      >
+                        {s.status_hint}
+                      </span>
+                    </div>
+                    <div className="h-3 sm:h-4 w-full overflow-hidden rounded-full bg-slate-200/50 dark:bg-slate-800/50 shadow-inner">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${
+                          s.percentage >= 75
+                            ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                            : s.percentage >= 65
+                              ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                              : "bg-gradient-to-r from-rose-500 to-red-500"
+                        }`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="glass-card p-6 opacity-90 transition hover:opacity-100">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-slate-500 dark:text-slate-400">Professor Breakdown</h2>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
           {subject_cards.map((subject, i) => {
             const width = Math.max(0, Math.min(100, subject.percentage));

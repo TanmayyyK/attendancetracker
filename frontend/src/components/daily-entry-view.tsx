@@ -28,6 +28,14 @@ const PROFESSORS = [
   "Mahesh Sir"
 ];
 
+const SUBJECTS = [
+  "Physiology",
+  "Anatomy",
+  "Samhita",
+  "Padarth Vigyan",
+  "Sanskrit (CM Sir)"
+];
+
 type RowCount = { present: number; absent: number };
 
 export function DailyEntryView() {
@@ -35,40 +43,60 @@ export function DailyEntryView() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [counts, setCounts] = useState<Record<string, RowCount>>(
+  const [logMode, setLogMode] = useState<"subject" | "teacher">("subject");
+
+  const [teacherCounts, setTeacherCounts] = useState<Record<string, RowCount>>(
     Object.fromEntries(PROFESSORS.map((p) => [p, { present: 0, absent: 0 }]))
   );
-
-  const totalRows = useMemo(
-    () => Object.values(counts).reduce((acc, cur) => acc + cur.present + cur.absent, 0),
-    [counts]
+  
+  const [subjectCounts, setSubjectCounts] = useState<Record<string, RowCount>>(
+    Object.fromEntries(SUBJECTS.map((s) => [s, { present: 0, absent: 0 }]))
   );
 
-  function updateCount(professor: string, key: keyof RowCount, delta: number) {
-    setCounts((prev) => {
-      const current = prev[professor][key];
-      const next = Math.max(0, current + delta);
-      return {
+  const activeCounts = logMode === "subject" ? subjectCounts : teacherCounts;
+
+  const totalRows = useMemo(
+    () => Object.values(activeCounts).reduce((acc, cur) => acc + cur.present + cur.absent, 0),
+    [activeCounts]
+  );
+
+  function updateCount(keyName: string, type: keyof RowCount, delta: number) {
+    if (logMode === "subject") {
+      setSubjectCounts((prev) => ({
         ...prev,
-        [professor]: {
-          ...prev[professor],
-          [key]: next
-        }
-      };
-    });
+        [keyName]: { ...prev[keyName], [type]: Math.max(0, prev[keyName][type] + delta) }
+      }));
+    } else {
+      setTeacherCounts((prev) => ({
+        ...prev,
+        [keyName]: { ...prev[keyName], [type]: Math.max(0, prev[keyName][type] + delta) }
+      }));
+    }
   }
 
   async function saveAll() {
     setSaving(true);
     setMessage(null);
-    const rows = PROFESSORS.map((professor) => ({
-      date,
-      mode: "teacher" as const,
-      subject: SUBJECT_MAP[professor],
-      professor,
-      present: counts[professor].present,
-      absent: counts[professor].absent
-    })).filter((r) => r.present + r.absent > 0);
+    
+    let rows;
+    if (logMode === "teacher") {
+      rows = PROFESSORS.map((professor) => ({
+        date,
+        mode: "teacher" as const,
+        subject: SUBJECT_MAP[professor],
+        professor,
+        present: teacherCounts[professor].present,
+        absent: teacherCounts[professor].absent
+      })).filter((r) => r.present + r.absent > 0);
+    } else {
+      rows = SUBJECTS.map((subject) => ({
+        date,
+        mode: "subject" as const,
+        subject,
+        present: subjectCounts[subject].present,
+        absent: subjectCounts[subject].absent
+      })).filter((r) => r.present + r.absent > 0);
+    }
 
     if (rows.length === 0) {
       setSaving(false);
@@ -84,74 +112,114 @@ export function DailyEntryView() {
       return;
     }
 
-    setMessage(`Saved ${result.inserted} rows successfully.`);
-    setCounts(Object.fromEntries(PROFESSORS.map((p) => [p, { present: 0, absent: 0 }])));
+    setMessage(`Saved ${result.inserted} entries successfully.`);
+    if (logMode === "teacher") {
+      setTeacherCounts(Object.fromEntries(PROFESSORS.map((p) => [p, { present: 0, absent: 0 }])));
+    } else {
+      setSubjectCounts(Object.fromEntries(SUBJECTS.map((s) => [s, { present: 0, absent: 0 }])));
+    }
     router.refresh();
   }
 
   return (
-    <div className="space-y-5">
-      <section className="glass-card p-6">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-6">
+      <section className="glass-card p-6 md:p-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-semibold">Daily Entry</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-300">Log attendance with + / - controls.</p>
+            <h1 className="text-3xl font-bold tracking-tight">Daily Entry</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Log attendance dynamically by subject or professor.</p>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="flex w-full sm:w-auto rounded-xl bg-slate-200/50 p-1 dark:bg-slate-800/50">
+              <button
+                type="button"
+                onClick={() => setLogMode("subject")}
+                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                  logMode === "subject"
+                    ? "bg-white text-violet-600 shadow-sm dark:bg-slate-700 dark:text-violet-400"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                Subject
+              </button>
+              <button
+                type="button"
+                onClick={() => setLogMode("teacher")}
+                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+                  logMode === "teacher"
+                    ? "bg-white text-violet-600 shadow-sm dark:bg-slate-700 dark:text-violet-400"
+                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                Professor
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/50 pt-6 dark:border-white/10">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="rounded-xl border border-slate-200/50 bg-white/70 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5"
+              className="flex-1 sm:flex-none rounded-xl border border-slate-200/50 bg-white/70 px-4 py-2 text-sm font-medium shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-white/10 dark:bg-white/5"
             />
+          </div>
+          
+          <div className="flex w-full sm:w-auto flex-col items-end gap-2">
             <button
               type="button"
               onClick={saveAll}
-              disabled={saving}
-              className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+              disabled={saving || totalRows === 0}
+              className="w-full sm:w-auto rounded-xl bg-violet-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition hover:bg-violet-500 active:scale-95 disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save Daily Entry"}
+              {saving ? "Saving..." : `Save ${totalRows} Entries`}
             </button>
           </div>
         </div>
-        <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">Total pending rows: {totalRows}</div>
+        
         {message ? (
-          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             {message}
           </div>
         ) : null}
       </section>
 
       <section className="glass-card p-4 md:p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {PROFESSORS.map((prof) => {
-            const c = counts[prof];
+        <div className="grid grid-cols-1 gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {(logMode === "subject" ? SUBJECTS : PROFESSORS).map((item) => {
+            const c = activeCounts[item];
             return (
-              <div key={prof} className="group rounded-2xl border border-white/10 bg-white/5 p-4 transition-colors hover:bg-white/10">
-                <div className="mb-4 flex items-center gap-2 rounded-xl bg-violet-600/10 px-4 py-2 font-black tracking-tight text-violet-400">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-600 text-[10px] text-white">
-                    {prof[0]}
+              <div key={item} className="glass-card hover-lift p-5 transition-all">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-violet-600/10 font-black text-violet-600 dark:bg-violet-500/20 dark:text-violet-400">
+                    {item[0]}
                   </div>
-                  {prof}
+                  <div className="font-bold tracking-tight text-slate-800 dark:text-slate-200 leading-tight">
+                    {item}
+                  </div>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Present</div>
-                    <div className="flex h-12 items-center overflow-hidden rounded-xl bg-slate-900/40 p-1">
+                    <div className="flex h-14 items-center overflow-hidden rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 p-1 shadow-inner border border-emerald-100 dark:border-emerald-900/30">
                       <button
                         type="button"
-                        className="touch-target flex h-full items-center justify-center px-3 font-bold transition active:scale-90"
-                        onClick={() => updateCount(prof, "present", -1)}
+                        className="touch-target flex h-full items-center justify-center px-4 font-bold text-emerald-600 dark:text-emerald-500 transition active:scale-90 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-xl"
+                        onClick={() => updateCount(item, "present", -1)}
                       >
                         −
                       </button>
-                      <div className="flex-1 text-center font-mono text-lg font-black transition-all group-hover:scale-110">
+                      <div className="flex-1 text-center font-mono text-xl font-black text-emerald-600 dark:text-emerald-400 transition-all select-none">
                         {c.present}
                       </div>
                       <button
                         type="button"
-                        className="touch-target flex h-full items-center justify-center px-3 font-bold transition active:scale-90"
-                        onClick={() => updateCount(prof, "present", 1)}
+                        className="touch-target flex h-full items-center justify-center px-4 font-bold text-emerald-600 dark:text-emerald-500 transition active:scale-90 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-xl"
+                        onClick={() => updateCount(item, "present", 1)}
                       >
                         +
                       </button>
@@ -159,21 +227,21 @@ export function DailyEntryView() {
                   </div>
                   <div>
                     <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">Absent</div>
-                    <div className="flex h-12 items-center overflow-hidden rounded-xl bg-slate-900/40 p-1">
+                    <div className="flex h-14 items-center overflow-hidden rounded-2xl bg-rose-50 dark:bg-rose-950/30 p-1 shadow-inner border border-rose-100 dark:border-rose-900/30">
                       <button
                         type="button"
-                        className="touch-target flex h-full items-center justify-center px-3 font-bold transition active:scale-90"
-                        onClick={() => updateCount(prof, "absent", -1)}
+                        className="touch-target flex h-full items-center justify-center px-4 font-bold text-rose-600 dark:text-rose-500 transition active:scale-90 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-xl"
+                        onClick={() => updateCount(item, "absent", -1)}
                       >
                         −
                       </button>
-                      <div className="flex-1 text-center font-mono text-lg font-black transition-all group-hover:scale-110">
+                      <div className="flex-1 text-center font-mono text-xl font-black text-rose-600 dark:text-rose-400 transition-all select-none">
                         {c.absent}
                       </div>
                       <button
                         type="button"
-                        className="touch-target flex h-full items-center justify-center px-3 font-bold transition active:scale-90"
-                        onClick={() => updateCount(prof, "absent", 1)}
+                        className="touch-target flex h-full items-center justify-center px-4 font-bold text-rose-600 dark:text-rose-500 transition active:scale-90 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-xl"
+                        onClick={() => updateCount(item, "absent", 1)}
                       >
                         +
                       </button>
