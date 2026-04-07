@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Calendar, User, BookOpen, CheckCircle2, XCircle } from "lucide-react";
+import { Trash2, Calendar, User, CheckCircle2, XCircle, BookOpen } from "lucide-react";
+import { getAttendanceLogs, deleteAttendanceLog } from "@/lib/api";
 
 type AttendanceRecord = {
   id: number;
@@ -18,29 +19,16 @@ export function ManageLogs() {
   const [loading, setLoading] = useState(true);
 
   async function fetchLogs() {
-    try {
-      const res = await fetch("http://localhost:8000/api/attendance");
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data);
-      }
-    } catch (err) {
-      console.error("Failed to fetch logs", err);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const data = await getAttendanceLogs();
+    setLogs(data || []);
+    setLoading(false);
   }
 
   async function deleteLog(id: number) {
-    try {
-      const res = await fetch(`http://localhost:8000/api/attendance/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        setLogs((prev) => prev.filter((log) => log.id !== id));
-      }
-    } catch (err) {
-      console.error("Failed to delete log", err);
+    const success = await deleteAttendanceLog(id);
+    if (success) {
+      setLogs((prev) => prev.filter((log) => log.id !== id));
     }
   }
 

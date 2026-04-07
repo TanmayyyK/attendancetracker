@@ -120,3 +120,26 @@ export async function createBulkAttendance(
     return { ok: false, inserted: 0 };
   }
 }
+
+export async function getAttendanceLogs(): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/attendance`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (err) {
+    console.error(`[API CRASH] /attendance fetch failed:`, err);
+    return [];
+  }
+}
+
+export async function deleteAttendanceLog(id: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/attendance/${id}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch (err) {
+    console.error(`[API CRASH] /attendance/${id} delete failed:`, err);
+    return false;
+  }
+}
