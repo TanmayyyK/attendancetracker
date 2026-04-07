@@ -4,7 +4,19 @@ import { CumulativeSubjectCard, DashboardSummary, MonthlySnapshot, SubjectCard }
 // If we are on your local Mac, use the localhost FastAPI server.
 // Dynamically set the API base path
 // Dynamically set the API base path
-const API_BASE = "/api";
+const getBaseUrl = () => {
+  if (process.env.NODE_ENV === "development") {
+     return "http://localhost:8000/api";
+  }
+  // Vercel omits https:// in NEXT_PUBLIC_VERCEL_URL, so we add it manually
+  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
+     return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api`;
+  }
+  // Fallback to the hardcoded domain for absolute URL context in Server Components
+  return "https://attendancetracker-gamma.vercel.app/api";
+};
+
+const API_BASE = getBaseUrl();
 const EMPTY_SUMMARY: DashboardSummary = {
   overall: { total: 0, present: 0, absent: 0, percentage: 0, streak: 0 },
   subject_cards: [],
@@ -15,7 +27,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
 
 export async function getDashboardSummary(): Promise<DashboardSummary> {
   try {
-    const res = await fetch(`${API_BASE}/dashboard/summary`, { cache: "no-store" });
+    // Rule: Use revalidate to protect Vercel Free Tier CPU limits
+    const res = await fetch(`${API_BASE}/dashboard/summary`, { next: { revalidate: 60 } });
     if (!res.ok) {
       return EMPTY_SUMMARY;
     }
@@ -28,7 +41,7 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
 
 export async function getSimulatorSubjects(): Promise<SubjectCard[]> {
   try {
-    const res = await fetch(`${API_BASE}/simulator/subjects`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/simulator/subjects`, { next: { revalidate: 60 } });
     if (!res.ok) {
       return [];
     }
@@ -40,7 +53,7 @@ export async function getSimulatorSubjects(): Promise<SubjectCard[]> {
 
 export async function getCumulativeSubjects(): Promise<CumulativeSubjectCard[]> {
   try {
-    const res = await fetch(`${API_BASE}/subjects/cumulative`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/subjects/cumulative`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -50,7 +63,7 @@ export async function getCumulativeSubjects(): Promise<CumulativeSubjectCard[]> 
 
 export async function getMonthlySnapshots(): Promise<MonthlySnapshot[]> {
   try {
-    const res = await fetch(`${API_BASE}/insights/monthly`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/insights/monthly`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return res.json();
   } catch {

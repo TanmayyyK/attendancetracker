@@ -6,7 +6,8 @@ from app.core.config import settings
 def _build_engine():
     db_url = settings.database_url
     connect_args = {}
-    if db_url.startswith("sqlite"):
+    # Rule: Only apply this argument if the URL implies a local file: sqlite:///
+    if db_url.startswith("sqlite:///"):
         connect_args = {"check_same_thread": False}
     return create_engine(db_url, connect_args=connect_args, echo=False)
 
