@@ -8,13 +8,12 @@ const getBaseUrl = () => {
   if (process.env.NODE_ENV === "development") {
      return "http://localhost:8000/api";
   }
-  // Vercel omits https:// in NEXT_PUBLIC_VERCEL_URL, so we add it manually
-  if (process.env.NEXT_PUBLIC_VERCEL_URL) {
-     return `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api`;
-  }
-  // Fallback to the hardcoded domain for absolute URL context in Server Components
+  // Hardcode the absolute production URL.
+  // Using NEXT_PUBLIC_VERCEL_URL during Next.js builds causes Vercel to hit unfinished
+  // deployment links, which returns 404s and poisons the static cache with zeros.
   return "https://attendancetracker-gamma.vercel.app/api";
 };
+
 
 const API_BASE = getBaseUrl();
 const EMPTY_SUMMARY: DashboardSummary = {
