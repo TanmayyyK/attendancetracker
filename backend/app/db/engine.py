@@ -7,6 +7,12 @@ def _build_engine():
     # If it's not on Vercel, it safely falls back to your local settings.
     db_url = os.getenv("DATABASE_URL", settings.database_url)
     
+    # Auto-fix Turso URL if user pasted "libsql://" instead of "sqlite+libsql://"
+    if db_url.startswith("libsql://"):
+        db_url = db_url.replace("libsql://", "sqlite+libsql://", 1)
+    elif db_url.startswith("https://"):
+        db_url = db_url.replace("https://", "sqlite+libsql://", 1)
+        
     connect_args = {}
     
     # Only apply local threading rules if it's actually a local offline file

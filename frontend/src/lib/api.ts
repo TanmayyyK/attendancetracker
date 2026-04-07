@@ -30,10 +30,12 @@ export async function getDashboardSummary(): Promise<DashboardSummary> {
     // Rule: Use revalidate to protect Vercel Free Tier CPU limits
     const res = await fetch(`${API_BASE}/dashboard/summary`, { next: { revalidate: 60 } });
     if (!res.ok) {
+      console.error(`[API ERROR] /dashboard/summary returned ${res.status}`);
       return EMPTY_SUMMARY;
     }
     return res.json();
-  } catch {
+  } catch (err) {
+    console.error(`[API CRASH] /dashboard/summary failed:`, err);
     // Keep UI alive when API is temporarily unavailable.
     return EMPTY_SUMMARY;
   }
@@ -43,10 +45,12 @@ export async function getSimulatorSubjects(): Promise<SubjectCard[]> {
   try {
     const res = await fetch(`${API_BASE}/simulator/subjects`, { next: { revalidate: 60 } });
     if (!res.ok) {
+      console.error(`[API ERROR] /simulator/subjects returned ${res.status}`);
       return [];
     }
     return res.json();
-  } catch {
+  } catch (err) {
+    console.error(`[API CRASH] /simulator/subjects failed:`, err);
     return [];
   }
 }
@@ -54,9 +58,13 @@ export async function getSimulatorSubjects(): Promise<SubjectCard[]> {
 export async function getCumulativeSubjects(): Promise<CumulativeSubjectCard[]> {
   try {
     const res = await fetch(`${API_BASE}/subjects/cumulative`, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[API ERROR] /subjects/cumulative returned ${res.status}`);
+      return [];
+    }
     return res.json();
-  } catch {
+  } catch (err) {
+    console.error(`[API CRASH] /subjects/cumulative failed:`, err);
     return [];
   }
 }
