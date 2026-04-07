@@ -131,35 +131,59 @@ export function DashboardView({
       transition={{ duration: 0.35 }}
       className="space-y-6"
     >
-      <section className="glass-card p-6 md:p-8">
-        <p className="text-sm text-slate-500 dark:text-slate-400">{now}</p>
-        <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Dashboard</h1>
-            <p className="mt-1 text-slate-600 dark:text-slate-300">Your command center for attendance control.</p>
+      <motion.section 
+        className="glass-card relative overflow-hidden bg-gradient-to-br from-indigo-500/10 to-purple-500/10 p-6 sm:p-10 text-center"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ease: "easeOut", duration: 0.5 }}
+      >
+        <div className="absolute inset-0 bg-white/40 dark:bg-black/20 mix-blend-overlay"></div>
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{now}</p>
+          <div className="flex items-center justify-center gap-3">
+            <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-indigo-500/20 text-indigo-600 dark:bg-indigo-400/20 dark:text-indigo-400">
+              <GraduationCap className="h-6 w-6 sm:h-8 sm:w-8" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-800 dark:text-slate-100">
+              Attendance Overview
+            </h1>
           </div>
-          <div className="rounded-2xl bg-slate-900/80 px-5 py-3 font-mono text-3xl text-white shadow-xl dark:bg-white/10">
-            <span className={colorForPercentage(overall.percentage)}>{overall.percentage.toFixed(1)}%</span>
+          
+          <div className="mt-4 flex flex-col items-center">
+            <div className="mt-2 flex items-baseline justify-center gap-1">
+              <span 
+                className={`fluid-heading bg-gradient-to-r bg-clip-text text-transparent ${
+                  overall.percentage >= 75 
+                    ? 'from-emerald-400 to-teal-500' 
+                    : overall.percentage >= 65 
+                      ? 'from-amber-400 to-orange-500' 
+                      : 'from-rose-500 to-red-600'
+                }`}
+              >
+                {overall.percentage.toFixed(1)}
+              </span>
+              <span className="text-xl sm:text-2xl font-medium text-slate-500 dark:text-slate-400">%</span>
+            </div>
+          </div>
+
+          <div className="mt-6 sm:mt-8 grid w-full max-w-2xl grid-cols-3 divide-x divide-slate-200/50 dark:divide-slate-700/50 rounded-2xl bg-white/50 p-4 dark:bg-black/20">
+            <div className="flex flex-col items-center justify-center space-y-1">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Present</span>
+              <span className="text-lg sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">{overall.present}</span>
+            </div>
+            <div className="flex flex-col items-center justify-center space-y-1">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Absent</span>
+              <span className="text-lg sm:text-2xl font-bold text-rose-600 dark:text-rose-400">{overall.absent}</span>
+            </div>
+            <div className="flex flex-col items-center justify-center space-y-1">
+              <span className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1">
+                Streak <Flame className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" />
+              </span>
+              <span className="text-lg sm:text-2xl font-bold text-orange-600 dark:text-orange-400">{overall.streak}</span>
+            </div>
           </div>
         </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Classes", value: overall.total, icon: GraduationCap },
-          { label: "Present", value: overall.present, icon: UserCheck },
-          { label: "Absent", value: overall.absent, icon: UserX },
-          { label: "Streak", value: `${overall.streak}d`, icon: Flame }
-        ].map((item) => (
-          <div key={item.label} className="glass-card p-4">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-              <span className="text-sm">{item.label}</span>
-              <item.icon size={16} />
-            </div>
-            <div className="mt-2 font-mono text-2xl font-semibold">{item.value}</div>
-          </div>
-        ))}
-      </section>
+      </motion.section>
 
       <section className="glass-card p-6">
         <div className="mb-4">
@@ -219,27 +243,70 @@ export function DashboardView({
             {logMessage}
           </div>
         ) : null}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {subject_cards.map((subject) => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+          {subject_cards.map((subject, i) => {
             const width = Math.max(0, Math.min(100, subject.percentage));
             return (
-              <div key={subject.professor} className="rounded-xl border border-slate-200/50 p-4 dark:border-white/10">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium">{subject.professor}</p>
-                  <p className={`font-mono text-sm ${colorForPercentage(subject.percentage)}`}>
-                    {subject.percentage.toFixed(1)}%
-                  </p>
+              <motion.div
+                key={subject.professor}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+                className="glass-card hover-lift flex h-full flex-col p-5 sm:p-6"
+              >
+                <div className="flex flex-col h-full">
+                  <div className="mb-4 flex items-start justify-between gap-4">
+                    <h3 className="line-clamp-2 text-base sm:text-lg font-semibold leading-tight text-slate-800 dark:text-slate-200">
+                      {subject.professor}
+                    </h3>
+                    <span className={`text-xl sm:text-2xl font-bold tracking-tight ${colorForPercentage(subject.percentage)}`}>
+                      {subject.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  
+                  <div className="mb-6 flex-1 space-y-3 text-sm">
+                    <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-800/30 px-3 py-1.5 rounded-lg">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs">Total Classes</span>
+                      <span className="font-semibold">{subject.total}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 dark:text-slate-400">Present</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{subject.present}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 dark:text-slate-400">Absent</span>
+                      <span className="font-bold text-rose-600 dark:text-rose-400">{subject.absent}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto space-y-3">
+                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
+                      <span className="text-slate-400">Status</span>
+                      <span
+                        className={
+                          subject.safe_to_skip > 0
+                            ? "text-emerald-500"
+                            : "text-amber-500"
+                        }
+                      >
+                        {subject.status_hint}
+                      </span>
+                    </div>
+                    <div className="h-3 sm:h-4 w-full overflow-hidden rounded-full bg-slate-200/50 dark:bg-slate-800/50 shadow-inner">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${
+                          subject.percentage >= 75
+                            ? "bg-gradient-to-r from-emerald-400 to-teal-500"
+                            : subject.percentage >= 65
+                              ? "bg-gradient-to-r from-amber-400 to-orange-500"
+                              : "bg-gradient-to-r from-rose-500 to-red-500"
+                        }`}
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded bg-slate-200 dark:bg-white/10">
-                  <div className="h-full rounded bg-violet-500" style={{ width: `${width}%` }} />
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                  <span className="font-mono">
-                    {subject.present}/{subject.total}
-                  </span>
-                  <span>{subject.status_hint}</span>
-                </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

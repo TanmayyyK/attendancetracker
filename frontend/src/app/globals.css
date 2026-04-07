@@ -26,7 +26,20 @@ body {
 }
 
 .glass-card {
-  @apply rounded-2xl border border-white/20 bg-white/70 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-white/5;
+  @apply rounded-3xl border border-white/20 bg-white/70 shadow-glass backdrop-blur-2xl dark:border-white/10 dark:bg-white/5;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1), inset 0 2px 2px 0 rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-card {
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 2px 2px 0 rgba(255, 255, 255, 0.05);
+}
+
+.hover-lift {
+  @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl active:scale-95 active:translate-y-0 active:shadow-md;
+}
+
+.fluid-heading {
+  @apply text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight;
 }
 
 .scrolling-touch {
@@ -34,5 +47,6 @@ body {
 }
 
 .touch-target {
-  @apply min-h-[48px] min-w-[48px] flex items-center justify-center;
+  @apply min-h-[56px] min-w-[56px] flex items-center justify-center;
 }
+
