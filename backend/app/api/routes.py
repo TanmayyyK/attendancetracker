@@ -31,7 +31,7 @@ def health():
 
 @router.get("/attendance")
 def list_attendance(session: Session = Depends(get_session)):
-    rows = session.exec(select(Attendance).order_by(Attendance.id.desc())).all()
+    rows = session.exec(select(Attendance).order_by(Attendance.id.desc()).limit(10)).all()
     return rows
 
 
