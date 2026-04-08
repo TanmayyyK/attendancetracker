@@ -40,7 +40,7 @@ type RowCount = { present: number; absent: number };
 
 export function DailyEntryView() {
   const router = useRouter();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [logMode, setLogMode] = useState<"subject" | "teacher">("subject");

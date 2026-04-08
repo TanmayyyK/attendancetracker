@@ -55,6 +55,7 @@ export function DashboardView({
   const [logMessage, setLogMessage] = useState<string | null>(null);
 
   const now = new Date().toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -78,7 +79,7 @@ export function DashboardView({
   async function quickLogSaveAll() {
     setSaving(true);
     setLogMessage(null);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
     const rows =
       logMode === "teacher"
         ? TEACHERS.map((teacher) => ({

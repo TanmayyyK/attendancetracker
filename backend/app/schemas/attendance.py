@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -16,7 +17,7 @@ class AttendanceCreate(BaseModel):
     def default_timestamp(cls, value: Optional[str]) -> str:
         if value:
             return value
-        return datetime.now().strftime("%H:%M:%S")
+        return datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S")
 
 
 class AttendanceUpdate(BaseModel):

@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, delete, func, select
@@ -38,7 +39,7 @@ def list_attendance(session: Session = Depends(get_session)):
 def create_attendance(payload: AttendanceCreate, session: Session = Depends(get_session)):
     record = Attendance(
         date=payload.date,
-        timestamp=payload.timestamp or datetime.now().strftime("%H:%M:%S"),
+        timestamp=payload.timestamp or datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S"),
         subject=payload.subject,
         professor=payload.professor,
         status=payload.status,
@@ -52,7 +53,7 @@ def create_attendance(payload: AttendanceCreate, session: Session = Depends(get_
 @router.post("/attendance/bulk")
 def bulk_create_attendance(payload: BulkQuickLogBatch, session: Session = Depends(get_session)):
     inserted = 0
-    now = datetime.now().strftime("%H:%M:%S")
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S")
     for row in payload.rows:
         if row.present < 0 or row.absent < 0:
             continue
