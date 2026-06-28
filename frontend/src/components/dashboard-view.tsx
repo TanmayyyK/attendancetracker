@@ -45,6 +45,7 @@ export function DashboardView({
   const { overall, subject_cards } = summary;
   const [openLog, setOpenLog] = useState(false);
   const [logMode, setLogMode] = useState<"subject" | "teacher">("subject");
+  const averagePercentage = cumulativeSubjects?.length > 0 ? cumulativeSubjects.reduce((a, c) => a + c.percentage, 0) / cumulativeSubjects.length : overall.percentage;
   const [teacherCounts, setTeacherCounts] = useState<Record<string, CountRow>>(
     Object.fromEntries(TEACHERS.map((t) => [t, { present: 0, absent: 0 }]))
   );
@@ -154,14 +155,14 @@ export function DashboardView({
             <div className="mt-2 flex items-baseline justify-center gap-1">
               <span 
                 className={`fluid-heading bg-gradient-to-r bg-clip-text text-transparent ${
-                  overall.percentage >= 75 
+                  averagePercentage >= 75 
                     ? 'from-emerald-400 to-teal-500' 
-                    : overall.percentage >= 65 
+                    : averagePercentage >= 65 
                       ? 'from-amber-400 to-orange-500' 
                       : 'from-rose-500 to-red-600'
                 }`}
               >
-                {overall.percentage.toFixed(1)}
+                {averagePercentage.toFixed(1)}
               </span>
               <span className="text-xl sm:text-2xl font-medium text-slate-500 dark:text-slate-400">%</span>
             </div>
@@ -272,78 +273,7 @@ export function DashboardView({
         </div>
       </section>
 
-      <section className="glass-card p-6 opacity-90 transition hover:opacity-100">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-500 dark:text-slate-400">Professor Breakdown</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-          {subject_cards.map((subject, i) => {
-            const width = Math.max(0, Math.min(100, subject.percentage));
-            return (
-              <motion.div
-                key={subject.professor}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.05 }}
-                className="glass-card hover-lift flex h-full flex-col p-5 sm:p-6"
-              >
-                <div className="flex flex-col h-full">
-                  <div className="mb-4 flex items-start justify-between gap-4">
-                    <h3 className="line-clamp-2 text-base sm:text-lg font-semibold leading-tight text-slate-800 dark:text-slate-200">
-                      {subject.professor}
-                    </h3>
-                    <span className={`text-xl sm:text-2xl font-bold tracking-tight ${colorForPercentage(subject.percentage)}`}>
-                      {subject.percentage.toFixed(1)}%
-                    </span>
-                  </div>
-                  
-                  <div className="mb-6 flex-1 space-y-3 text-sm">
-                    <div className="flex justify-between items-center bg-slate-100/50 dark:bg-slate-800/30 px-3 py-1.5 rounded-lg">
-                      <span className="text-slate-500 dark:text-slate-400 text-xs">Total Classes</span>
-                      <span className="font-semibold">{subject.total}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500 dark:text-slate-400">Present</span>
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{subject.present}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="text-slate-500 dark:text-slate-400">Absent</span>
-                      <span className="font-bold text-rose-600 dark:text-rose-400">{subject.absent}</span>
-                    </div>
-                  </div>
 
-                  <div className="mt-auto space-y-3">
-                    <div className="flex items-center justify-between text-xs sm:text-sm font-semibold">
-                      <span className="text-slate-400">Status</span>
-                      <span
-                        className={
-                          subject.safe_to_skip > 0
-                            ? "text-emerald-500"
-                            : "text-amber-500"
-                        }
-                      >
-                        {subject.status_hint}
-                      </span>
-                    </div>
-                    <div className="h-3 sm:h-4 w-full overflow-hidden rounded-full bg-slate-200/50 dark:bg-slate-800/50 shadow-inner">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ease-out ${
-                          subject.percentage >= 75
-                            ? "bg-gradient-to-r from-emerald-400 to-teal-500"
-                            : subject.percentage >= 65
-                              ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                              : "bg-gradient-to-r from-rose-500 to-red-500"
-                        }`}
-                        style={{ width: `${width}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
 
       {openLog ? (
         <div className="fixed inset-0 z-[100] flex flex-col justify-end bg-slate-950/60 p-0 md:items-center md:justify-center md:p-4">
@@ -367,27 +297,7 @@ export function DashboardView({
             </div>
 
             <div className="scrolling-touch flex-1 overflow-y-auto p-5">
-              <div className="mb-6 inline-flex rounded-2xl border border-white/10 bg-white/5 p-1.5">
-                {(["subject", "teacher"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setLogMode(mode)}
-                    className={`relative rounded-xl px-6 py-2 text-sm font-bold transition ${
-                      logMode === mode ? "text-white" : "text-slate-400"
-                    }`}
-                  >
-                    {logMode === mode && (
-                      <motion.span
-                        layoutId="log-mode-pill"
-                        className="absolute inset-0 -z-10 rounded-xl bg-violet-600 shadow-lg shadow-violet-600/20"
-                        transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                      />
-                    )}
-                    {mode === "subject" ? "By Subject" : "By Teacher"}
-                  </button>
-                ))}
-              </div>
+
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(logMode === "teacher" ? TEACHERS : SUBJECTS).map((name) => (

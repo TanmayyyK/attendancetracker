@@ -60,7 +60,6 @@ export function ManageLogs() {
             <tr className="border-b border-white/10 bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-500">
               <th className="px-5 py-4">Date & Time</th>
               <th className="px-5 py-4">Subject</th>
-              <th className="px-5 py-4">Professor</th>
               <th className="px-5 py-4 text-center">Status</th>
               <th className="px-5 py-4 text-right">Action</th>
             </tr>
@@ -78,7 +77,6 @@ export function ManageLogs() {
                     <span className="font-medium">{log.subject}</span>
                   </div>
                 </td>
-                <td className="px-5 py-4 font-medium text-slate-400">{log.professor}</td>
                 <td className="px-5 py-4">
                   <div className="flex justify-center">
                     <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[10px] font-black uppercase tracking-widest ${
@@ -116,10 +114,6 @@ export function ManageLogs() {
                   {log.date} • {log.timestamp}
                 </div>
                 <div className="mt-2 text-lg sm:text-xl font-black tracking-tight">{log.subject}</div>
-                <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500 mt-1">
-                  <User size={14} />
-                  {log.professor}
-                </div>
               </div>
               <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 sm:px-4 sm:py-2 font-mono text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-sm ${
                 log.status === "Present" 

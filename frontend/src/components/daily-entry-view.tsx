@@ -127,37 +127,9 @@ export function DailyEntryView() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Daily Entry</h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Log attendance dynamically by subject or professor.</p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex w-full sm:w-auto rounded-xl bg-slate-200/50 p-1 dark:bg-slate-800/50">
-              <button
-                type="button"
-                onClick={() => setLogMode("subject")}
-                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-                  logMode === "subject"
-                    ? "bg-white text-violet-600 shadow-sm dark:bg-slate-700 dark:text-violet-400"
-                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-              >
-                Subject
-              </button>
-              <button
-                type="button"
-                onClick={() => setLogMode("teacher")}
-                className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
-                  logMode === "teacher"
-                    ? "bg-white text-violet-600 shadow-sm dark:bg-slate-700 dark:text-violet-400"
-                    : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-              >
-                Professor
-              </button>
-            </div>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Log attendance dynamically by subject.</p>
           </div>
         </div>
-
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/50 pt-6 dark:border-white/10">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <input
