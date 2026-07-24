@@ -78,6 +78,16 @@ export async function getMonthlySnapshots(): Promise<MonthlySnapshot[]> {
   }
 }
 
+export async function getDateRangeInsights(startDate: string, endDate: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE}/insights/date-range?start_date=${startDate}&end_date=${endDate}`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
 export async function createAttendanceEntry(payload: {
   date: string;
   subject: string;

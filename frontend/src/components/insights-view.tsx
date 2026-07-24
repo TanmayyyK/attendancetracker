@@ -14,6 +14,7 @@ import {
   YAxis
 } from "recharts";
 import { useMemo, useState } from "react";
+import { getDateRangeInsights } from "@/lib/api";
 
 function colorFor(value: number) {
   if (value >= 75) return "text-emerald-400";
@@ -54,6 +55,19 @@ export function InsightsView({ summary, snapshots }: { summary: DashboardSummary
     () => snapshots.find((s) => s.month_key === selected) ?? snapshots[snapshots.length - 1],
     [selected, snapshots]
   );
+
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [dateRangeData, setDateRangeData] = useState<any[]>([]);
+  const [loadingRange, setLoadingRange] = useState(false);
+
+  const fetchDateRangeData = async () => {
+    if (!startDate || !endDate) return;
+    setLoadingRange(true);
+    const data = await getDateRangeInsights(startDate, endDate);
+    setDateRangeData(data);
+    setLoadingRange(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -202,6 +216,72 @@ export function InsightsView({ summary, snapshots }: { summary: DashboardSummary
               </div>
             ) : null}
           </>
+        )}
+      </section>
+
+      <section className="glass-card p-6">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Custom Date Range Insights</h2>
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Select a date range to see average attendance for each subject in that period.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-4 mb-6">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Start Date</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">End Date</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-200 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+            />
+          </div>
+          <button
+            onClick={fetchDateRangeData}
+            disabled={!startDate || !endDate || loadingRange}
+            className="rounded-xl bg-violet-600 hover:bg-violet-500 px-6 py-2 text-sm font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingRange ? "Loading..." : "Fetch Insights"}
+          </button>
+        </div>
+
+        {dateRangeData.length > 0 && (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {dateRangeData.map((sub: any) => {
+              const safe = sub.percentage >= 75;
+              return (
+                <div key={sub.subject} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-sm">{sub.subject}</div>
+                    <span className={`font-mono text-xs font-bold ${colorFor(sub.percentage)}`}>
+                      {sub.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded bg-white/10">
+                    <div
+                      className={`h-full rounded ${safe ? "bg-emerald-500" : "bg-rose-500"}`}
+                      style={{ width: `${Math.max(0, Math.min(100, sub.percentage))}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-mono">
+                      {sub.present} / {sub.total}
+                    </span>
+                    <span>{sub.present} Present</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 

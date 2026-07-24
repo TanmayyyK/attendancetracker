@@ -31,7 +31,7 @@ def health():
 
 @router.get("/attendance")
 def list_attendance(session: Session = Depends(get_session)):
-    rows = session.exec(select(Attendance).order_by(Attendance.id.desc()).limit(10)).all()
+    rows = session.exec(select(Attendance).order_by(Attendance.id.desc()).limit(100)).all()
     return rows
 
 
@@ -162,6 +162,17 @@ def subjects_cumulative(session: Session = Depends(get_session)):
 def insights_monthly(session: Session = Depends(get_session)):
     rows = session.exec(select(Attendance)).all()
     return monthly_snapshots(rows)
+
+
+@router.get("/insights/date-range")
+def insights_date_range(
+    start_date: str = Query(..., description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(..., description="End date (YYYY-MM-DD)"),
+    session: Session = Depends(get_session)
+):
+    stmt = select(Attendance).where(Attendance.date >= start_date).where(Attendance.date <= end_date)
+    rows = session.exec(stmt).all()
+    return calc_grouped_subjects(rows)
 
 
 @router.get("/insights/bunk-budget")
