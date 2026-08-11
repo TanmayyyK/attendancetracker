@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, useColorScheme } from 'react-native';
-import { getDashboardSummary } from '../../api';
+import { getDashboardSummary, getCumulativeSubjects } from '../../api';
 
 export default function Dashboard() {
   const [summary, setSummary] = useState<any>(null);
+  const [subjectsData, setSubjectsData] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
@@ -11,6 +12,8 @@ export default function Dashboard() {
   const fetchData = async () => {
     const data = await getDashboardSummary();
     if (data) setSummary(data);
+    const subData = await getCumulativeSubjects();
+    if (subData) setSubjectsData(subData);
   };
 
   const onRefresh = async () => {
@@ -120,7 +123,7 @@ export default function Dashboard() {
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} colors={[isDark ? '#f8fafc' : '#0f172a']} progressBackgroundColor={isDark ? '#0f172a' : '#ffffff'} />}
     >
       {summary && (
         <>
@@ -128,8 +131,8 @@ export default function Dashboard() {
             <Text style={styles.headerTitle}>Overall Attendance</Text>
             <View style={styles.percentageContainer}>
               <Text style={styles.percentageText}>
-                {(summary.subject_cards?.length > 0 
-                  ? summary.subject_cards.reduce((a: number, c: any) => a + c.percentage, 0) / summary.subject_cards.length 
+                {(subjectsData?.length > 0 
+                  ? subjectsData.reduce((a: number, c: any) => a + c.percentage, 0) / subjectsData.length 
                   : summary.overall.percentage).toFixed(1)}
               </Text>
               <Text style={styles.percentageSign}>%</Text>
@@ -151,12 +154,12 @@ export default function Dashboard() {
           </View>
 
           <Text style={styles.sectionTitle}>Subjects</Text>
-          {summary.subject_cards.map((subject: any) => (
-            <View key={subject.subject_name} style={styles.subjectCard}>
+          {subjectsData.map((subject: any) => (
+            <View key={subject.subject} style={styles.subjectCard}>
               <View style={styles.subjectInfo}>
-                <Text style={styles.subjectName}>{subject.subject_name}</Text>
+                <Text style={styles.subjectName}>{subject.subject}</Text>
                 <Text style={styles.subjectDetails}>
-                  {subject.present_classes} / {subject.total_classes} Classes
+                  {subject.present} / {subject.total} Classes
                 </Text>
               </View>
               <Text
@@ -165,7 +168,7 @@ export default function Dashboard() {
                   { color: subject.percentage >= 75 ? '#22c55e' : subject.percentage >= 60 ? '#eab308' : '#ef4444' }
                 ]}
               >
-                {subject.percentage.toFixed(0)}%
+                {subject.percentage?.toFixed(1) || 0}%
               </Text>
             </View>
           ))}

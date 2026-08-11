@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, PlusCircle, List, LineChart, TestTubes } from 'lucide-react-native';
+import { Home, PlusCircle, List, LineChart, Bell } from 'lucide-react-native';
 import { useColorScheme } from 'react-native';
 
 const Colors = {
@@ -78,10 +78,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="simulator"
+        name="notifications"
         options={{
-          title: 'Simulator',
-          tabBarIcon: ({ color }) => <TestTubes size={24} color={color} />,
+          title: 'Alerts',
+          tabBarIcon: ({ color }) => <Bell size={24} color={color} />,
         }}
       />
     </Tabs>

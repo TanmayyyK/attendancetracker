@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, useColorScheme } from 'react-native';
-import { Trash2 } from 'lucide-react-native';
+import { Trash2, Download } from 'lucide-react-native';
 import { getAttendanceLogs, deleteAttendanceLog } from '../../api';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as XLSX from 'xlsx';
 
 export default function Logs() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -41,6 +44,43 @@ export default function Logs() {
         },
       },
     ]);
+  };
+
+  const handleExport = async () => {
+    try {
+      const filteredLogs = logs.slice(0, 20);
+
+      if (filteredLogs.length === 0) {
+        Alert.alert('No Data', 'No logs found to export.');
+        return;
+      }
+
+      const wsData = filteredLogs.map(log => ({
+        Date: log.date,
+        Time: log.timestamp,
+        Subject: log.subject,
+        Status: log.status,
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(wsData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Last 20 Logs');
+
+      const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+
+      const fileUri = FileSystem.documentDirectory + 'Attendance_Last_20.xlsx';
+      await FileSystem.writeAsStringAsync(fileUri, wbout, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        dialogTitle: 'Download Last 20 Attendance Logs',
+      });
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to generate Excel file.');
+    }
   };
 
   const styles = StyleSheet.create({
@@ -102,6 +142,26 @@ export default function Logs() {
     deleteBtn: {
       padding: 8,
     },
+    exportBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#10b981', // emerald-500
+      paddingVertical: 12,
+      borderRadius: 12,
+      marginBottom: 16,
+      shadowColor: '#10b981',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    exportBtnText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginLeft: 8,
+    }
   });
 
   const renderItem = ({ item }: { item: any }) => {
@@ -133,7 +193,13 @@ export default function Logs() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} colors={[isDark ? '#f8fafc' : '#0f172a']} progressBackgroundColor={isDark ? '#0f172a' : '#ffffff'} />}
+        ListHeaderComponent={
+          <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
+            <Download size={20} color="#ffffff" />
+            <Text style={styles.exportBtnText}>Download Last 20 (Excel)</Text>
+          </TouchableOpacity>
+        }
         ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: isDark ? '#94a3b8' : '#64748b' }}>No logs found.</Text>}
       />
     </View>

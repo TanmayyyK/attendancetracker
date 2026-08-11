@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
+from app.api.notification_routes import notification_router
 from app.core.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -26,3 +27,4 @@ import os
 # If we keep the prefix here on Vercel, FastAPI will return 404 Not Found.
 api_prefix = "" if os.getenv("VERCEL") else settings.api_prefix
 app.include_router(router, prefix=api_prefix)
+app.include_router(notification_router, prefix=api_prefix)

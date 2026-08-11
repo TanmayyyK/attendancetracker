@@ -63,6 +63,22 @@ export async function createAttendanceEntry(payload: {
   }
 }
 
+export async function createBulkAttendance(rows: any[]) {
+  try {
+    const res = await fetch(`${API_BASE}/attendance/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    if (!res.ok) return { ok: false };
+    const data = await res.json();
+    return { ok: true, inserted: data.inserted };
+  } catch (err) {
+    console.error(err);
+    return { ok: false };
+  }
+}
+
 export async function getAttendanceLogs() {
   try {
     const res = await fetch(`${API_BASE}/attendance`);
@@ -83,5 +99,30 @@ export async function deleteAttendanceLog(id: number) {
   } catch (err) {
     console.error(err);
     return false;
+  }
+}
+
+export async function registerPushToken(token: string, deviceName?: string) {
+  try {
+    const res = await fetch(`${API_BASE}/notifications/register-token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, device_name: deviceName }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to register push token:", err);
+    return false;
+  }
+}
+
+export async function getNotificationHistory() {
+  try {
+    const res = await fetch(`${API_BASE}/notifications/history`);
+    if (!res.ok) throw new Error("Failed to fetch notification history");
+    return res.json();
+  } catch (err) {
+    console.error(err);
+    return [];
   }
 }

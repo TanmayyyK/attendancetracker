@@ -10,6 +10,10 @@ class Settings(BaseSettings):
         default="sqlite:///./attendance_ultra.db",
         description="Uses existing SQLite DB by default for seamless continuity.",
     )
+    notification_secret: str = Field(
+        default="change-me-in-production",
+        description="Secret key for sending push notifications.",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

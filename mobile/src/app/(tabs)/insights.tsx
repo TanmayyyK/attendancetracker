@@ -74,7 +74,7 @@ export default function Insights() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} colors={[isDark ? '#f8fafc' : '#0f172a']} progressBackgroundColor={isDark ? '#0f172a' : '#ffffff'} />}
     >
       <Text style={styles.title}>Monthly Insights</Text>
       {snapshots.length === 0 && (
@@ -83,19 +83,19 @@ export default function Insights() {
       {snapshots.map((snap, index) => (
         <View key={index} style={styles.card}>
           <View>
-            <Text style={styles.monthText}>{snap.month}</Text>
+            <Text style={styles.monthText}>{snap.label}</Text>
             <Text style={styles.classesText}>
-              Present: {snap.present} | Absent: {snap.absent}
+              Present: {snap.overall?.present || 0} | Absent: {(snap.overall?.total || 0) - (snap.overall?.present || 0)}
             </Text>
           </View>
           <View style={styles.percentContainer}>
             <Text
               style={[
                 styles.percentText,
-                { color: snap.percentage >= 75 ? '#22c55e' : snap.percentage >= 60 ? '#eab308' : '#ef4444' }
+                { color: snap.overall?.percentage >= 75 ? '#22c55e' : snap.overall?.percentage >= 60 ? '#eab308' : '#ef4444' }
               ]}
             >
-              {snap.percentage.toFixed(0)}%
+              {snap.overall?.percentage?.toFixed(0) || 0}%
             </Text>
           </View>
         </View>
