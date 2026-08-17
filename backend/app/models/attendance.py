@@ -12,3 +12,4 @@ class Attendance(SQLModel, table=True):
     subject: Optional[str] = None
     professor: str
     status: str
+    reason: Optional[str] = None

@@ -228,6 +228,17 @@ def dashboard_summary(records: list[Attendance], professors: list[str]) -> dict:
         dow_counter_total[dt.strftime("%A")] += 1
         if r.status == "Present":
             dow_counter_present[dt.strftime("%A")] += 1
+        elif r.status == "Absent" and r.reason:
+            month_total[r.reason] = month_total.get(r.reason, 0) # Just to ensure key exists, wait no
+            pass # We will count reasons in a separate loop for clarity.
+
+    bunk_reasons_counter = Counter()
+    for r in records:
+        if r.status == "Absent" and r.reason:
+            bunk_reasons_counter[r.reason] += 1
+            
+    bunk_reasons = [{"reason": k, "count": v} for k, v in bunk_reasons_counter.items()]
+    bunk_reasons.sort(key=lambda x: x["count"], reverse=True)
 
     burnout = []
     for dow in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]:
@@ -264,4 +275,5 @@ def dashboard_summary(records: list[Attendance], professors: list[str]) -> dict:
         "month_trend": month_trend,
         "burnout_analysis": burnout,
         "predictive_trajectory": {"projected_percentage": predicted},
+        "bunk_reasons": bunk_reasons,
     }

@@ -43,6 +43,7 @@ def create_attendance(payload: AttendanceCreate, session: Session = Depends(get_
         subject=payload.subject,
         professor=payload.professor,
         status=payload.status,
+        reason=payload.reason,
     )
     session.add(record)
     session.commit()
@@ -75,7 +76,10 @@ def bulk_create_attendance(payload: BulkQuickLogBatch, session: Session = Depend
                 )
             )
             inserted += 1
-        for _ in range(row.absent):
+        for i in range(row.absent):
+            reason = None
+            if row.absent_reasons and i < len(row.absent_reasons):
+                reason = row.absent_reasons[i]
             session.add(
                 Attendance(
                     date=row.date,
@@ -83,6 +87,7 @@ def bulk_create_attendance(payload: BulkQuickLogBatch, session: Session = Depend
                     subject=row.subject,
                     professor=professor_name,
                     status="Absent",
+                    reason=reason,
                 )
             )
             inserted += 1

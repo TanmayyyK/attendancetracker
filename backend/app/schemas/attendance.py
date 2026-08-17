@@ -11,6 +11,7 @@ class AttendanceCreate(BaseModel):
     subject: str
     professor: str
     status: str
+    reason: Optional[str] = None
 
     @field_validator("timestamp")
     @classmethod
@@ -26,6 +27,7 @@ class AttendanceUpdate(BaseModel):
     subject: Optional[str] = None
     professor: Optional[str] = None
     status: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class BulkQuickLogCreate(BaseModel):
@@ -35,6 +37,7 @@ class BulkQuickLogCreate(BaseModel):
     mode: str = "teacher"
     present: int = 0
     absent: int = 0
+    absent_reasons: Optional[list[str]] = None
 
 
 class BulkQuickLogBatch(BaseModel):

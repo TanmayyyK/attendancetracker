@@ -1,10 +1,21 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, useColorScheme } from 'react-native';
-import { Trash2, Download } from 'lucide-react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Alert, useColorScheme } from 'react-native';
+import { Trash2, Download, SearchX } from 'lucide-react-native';
 import { getAttendanceLogs, deleteAttendanceLog } from '../../api';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
+
+import { GlassCard } from '../../components/ui/GlassCard';
+import { GradientBackground } from '../../components/ui/GradientBackground';
+import { StatusPill } from '../../components/ui/StatusPill';
+import { AnimatedPressable } from '../../components/animations/AnimatedPressable';
+import { FadeInSlide } from '../../components/animations/FadeInSlide';
+import { StaggeredList } from '../../components/animations/StaggeredList';
+import { ShimmerCard } from '../../components/animations/ShimmerPlaceholder';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown, FadeOutRight, Layout } from 'react-native-reanimated';
 
 export default function Logs() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -29,6 +40,7 @@ export default function Logs() {
   }, []);
 
   const handleDelete = (id: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert('Delete Entry', 'Are you sure you want to delete this record?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -38,8 +50,10 @@ export default function Logs() {
           const success = await deleteAttendanceLog(id);
           if (success) {
             setLogs(logs.filter(log => log.id !== id));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           } else {
             Alert.alert('Error', 'Failed to delete record.');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           }
         },
       },
@@ -84,25 +98,10 @@ export default function Logs() {
   };
 
   const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: isDark ? '#020617' : '#f8fafc',
-    },
     listContent: {
       padding: 16,
-    },
-    logCard: {
-      backgroundColor: isDark ? '#0f172a' : '#ffffff',
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
-      flexDirection: 'row',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 3,
+      paddingTop: 20,
+      paddingBottom: 120,
     },
     logDetails: {
       flex: 1,
@@ -110,98 +109,120 @@ export default function Logs() {
     subjectText: {
       fontSize: 16,
       fontWeight: 'bold',
-      color: isDark ? '#f8fafc' : '#0f172a',
+      color: isDark ? '#F8FAFC' : '#0F172A',
       marginBottom: 4,
     },
     metaText: {
       fontSize: 14,
-      color: isDark ? '#94a3b8' : '#64748b',
-    },
-    statusBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
-      marginRight: 12,
-    },
-    statusPresent: {
-      backgroundColor: isDark ? 'rgba(34, 197, 94, 0.1)' : '#dcfce7',
-    },
-    statusAbsent: {
-      backgroundColor: isDark ? 'rgba(239, 68, 68, 0.1)' : '#fee2e2',
-    },
-    statusText: {
-      fontSize: 12,
-      fontWeight: 'bold',
-    },
-    statusTextPresent: {
-      color: '#22c55e',
-    },
-    statusTextAbsent: {
-      color: '#ef4444',
+      color: isDark ? '#94A3B8' : '#64748B',
     },
     deleteBtn: {
-      padding: 8,
+      padding: 10,
+      backgroundColor: 'rgba(239, 68, 68, 0.15)',
+      borderRadius: 12,
+      marginLeft: 12,
     },
-    exportBtn: {
+    exportBtnContent: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#10b981', // emerald-500
-      paddingVertical: 12,
-      borderRadius: 12,
-      marginBottom: 16,
-      shadowColor: '#10b981',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 4,
+      padding: 16,
+      position: 'relative',
+      overflow: 'hidden',
     },
     exportBtnText: {
-      color: '#ffffff',
+      color: isDark ? '#F8FAFC' : '#0F172A',
       fontSize: 16,
       fontWeight: 'bold',
       marginLeft: 8,
+    },
+    leftBorder: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+    },
+    emptyContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 60,
+    },
+    emptyText: {
+      fontSize: 16,
+      color: isDark ? '#94A3B8' : '#64748B',
+      marginTop: 12,
     }
   });
 
-  const renderItem = ({ item }: { item: any }) => {
-    const isPresent = item.status === 'Present';
+  const renderItem = ({ item, index }: { item: any; index: number }) => {
     return (
-      <View style={styles.logCard}>
-        <View style={styles.logDetails}>
-          <Text style={styles.subjectText}>{item.subject}</Text>
-          <Text style={styles.metaText}>
-            {new Date(item.date).toLocaleDateString()}
-          </Text>
-        </View>
-        <View style={[styles.statusBadge, isPresent ? styles.statusPresent : styles.statusAbsent]}>
-          <Text style={[styles.statusText, isPresent ? styles.statusTextPresent : styles.statusTextAbsent]}>
-            {item.status}
-          </Text>
-        </View>
-        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-          <Trash2 size={20} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
+      <Animated.View
+        entering={FadeInDown.delay(index * 40).springify()}
+        exiting={FadeOutRight}
+        layout={Layout.springify()}
+        style={{ marginBottom: 12 }}
+      >
+        <GlassCard animated={false} style={{ padding: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={styles.logDetails}>
+              <Text style={styles.subjectText}>{item.subject}</Text>
+              <Text style={styles.metaText}>
+                {new Date(item.date).toLocaleDateString()}
+              </Text>
+            </View>
+            
+            <StatusPill status={item.status} />
+            
+            <AnimatedPressable onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
+              <Trash2 size={18} color="#ef4444" />
+            </AnimatedPressable>
+          </View>
+        </GlassCard>
+      </Animated.View>
     );
   };
 
+  const renderEmpty = () => (
+    <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.emptyContainer}>
+      <SearchX size={48} color={isDark ? '#94A3B8' : '#64748B'} strokeWidth={1.5} />
+      <Text style={styles.emptyText}>No logs found.</Text>
+    </Animated.View>
+  );
+
   return (
-    <View style={styles.container}>
+    <GradientBackground>
       <FlatList
         data={logs}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? '#f8fafc' : '#0f172a'} colors={[isDark ? '#f8fafc' : '#0f172a']} progressBackgroundColor={isDark ? '#0f172a' : '#ffffff'} />}
-        ListHeaderComponent={
-          <TouchableOpacity style={styles.exportBtn} onPress={handleExport}>
-            <Download size={20} color="#ffffff" />
-            <Text style={styles.exportBtnText}>Download Last 20 (Excel)</Text>
-          </TouchableOpacity>
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            tintColor={isDark ? '#10b981' : '#059669'} 
+            colors={[isDark ? '#10b981' : '#059669']} 
+          />
         }
-        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40, color: isDark ? '#94a3b8' : '#64748b' }}>No logs found.</Text>}
+        ListHeaderComponent={
+          <FadeInSlide delay={0} style={{ marginBottom: 16 }}>
+            <AnimatedPressable onPress={handleExport}>
+              <GlassCard animated={false} style={{ padding: 0, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={['#10b981', '#34d399']}
+                  style={styles.leftBorder}
+                />
+                <View style={styles.exportBtnContent}>
+                  <Download size={20} color={isDark ? '#F8FAFC' : '#0F172A'} />
+                  <Text style={styles.exportBtnText}>Export Last 20</Text>
+                </View>
+              </GlassCard>
+            </AnimatedPressable>
+          </FadeInSlide>
+        }
+        ListEmptyComponent={renderEmpty}
       />
-    </View>
+    </GradientBackground>
   );
 }

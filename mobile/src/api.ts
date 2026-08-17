@@ -49,6 +49,7 @@ export async function createAttendanceEntry(payload: {
   subject: string;
   professor: string;
   status: "Present" | "Absent";
+  reason?: string;
 }) {
   try {
     const res = await fetch(`${API_BASE}/attendance`, {
