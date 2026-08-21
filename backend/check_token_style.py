@@ -3,7 +3,9 @@ from sqlalchemy import create_engine, text
 
 def test():
     db_url = "sqlite+libsql://attendance-tanmayyyk.aws-ap-south-1.turso.io/?secure=true"
-    token = "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzU1ODc5NjQsImlkIjoiMDE5ZDY0NGUtNjUwMS03Y2Y4LTllM2EtNzQxMjg0YjM2NmU2IiwicmlkIjoiYjIxNjI5ZTItYTdhZS00YTg1LTlmZGItZDg0NDI4YTk0YTg2In0.FuVRhdI-MP1kR_9ygUUMWW9IDJwPTyZtrJuEpg0hbi9PVqXtod3OyT9xwPPfl29ZEf78zTdhjzj2FmmWN7IcAw"
+    token = os.environ.get("TURSO_AUTH_TOKEN")
+    if not token:
+        raise RuntimeError("Set TURSO_AUTH_TOKEN before running this diagnostic.")
     
     # Try the connect_args style
     try:

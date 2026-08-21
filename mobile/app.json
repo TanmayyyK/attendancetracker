@@ -4,17 +4,16 @@
     "slug": "attendance-manager",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon_app.png",
+    "icon": "./assets/images/attendance-manager-icon-v3.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon_app.png"
+      "icon": "./assets/images/attendance-manager-icon-v3.png"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/icon_app.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
+        "backgroundColor": "#24172B",
+        "foregroundImage": "./assets/images/attendance-manager-icon-v3.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -49,6 +48,10 @@
       "eas": {
         "projectId": "fe1835ac-9c4f-4815-a4c5-5200127f6871"
       }
+    },
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#1F418A"
     }
   }
 }

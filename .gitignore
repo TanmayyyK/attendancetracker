@@ -45,4 +45,8 @@ frontend/.env.test.local
 frontend/.env.production.local
 
 # Vercel deployment folder
-frontend/.vercel/
+frontend/.vercel/*.apk
+.vscode/
+test.cpp
+process_*.py
+generate_*.py

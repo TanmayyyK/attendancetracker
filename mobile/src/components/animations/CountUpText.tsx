@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Text, TextStyle, StyleProp } from 'react-native';
+import { TextStyle, StyleProp } from 'react-native';
 import {
   useSharedValue,
   withTiming,
   useAnimatedReaction,
   runOnJS,
 } from 'react-native-reanimated';
+import { AppText } from '@/components/ui/Text';
+import { motion } from '@/design/tokens';
 
 export interface CountUpTextProps {
   value: number;
@@ -18,7 +20,7 @@ export interface CountUpTextProps {
 
 export const CountUpText: React.FC<CountUpTextProps> = ({
   value,
-  duration = 1200,
+  duration = motion.timing.metric,
   decimals = 1,
   style,
   suffix = '',
@@ -40,5 +42,5 @@ export const CountUpText: React.FC<CountUpTextProps> = ({
     [decimals, prefix, suffix]
   );
 
-  return <Text style={style}>{displayText}</Text>;
+  return <AppText style={style}>{displayText}</AppText>;
 };

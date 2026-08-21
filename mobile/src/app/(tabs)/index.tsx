@@ -1,49 +1,34 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  useColorScheme,
-  Image,
-} from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, Image } from 'react-native';
+import { Inbox } from 'lucide-react-native';
 
-import { GlassCard } from '../../components/ui/GlassCard';
-import { GradientBackground } from '../../components/ui/GradientBackground';
-import { ProgressRing } from '../../components/ui/ProgressRing';
-import { CountUpText } from '../../components/animations/CountUpText';
-import { FadeInSlide } from '../../components/animations/FadeInSlide';
-import { StaggeredList } from '../../components/animations/StaggeredList';
-import { FullScreenLoader } from '../../components/ui/FullScreenLoader';
-import { getDashboardSummary, getCumulativeSubjects } from '../../api';
+import { GUTTER, space, radius, type, motion } from '@/design/tokens';
+import { useTheme, zoneColor } from '@/design/theme';
+import { Screen, Card, SectionHeader, Stat, ProgressRing, ProgressBar, EmptyState, AppText } from '@/components/ui';
+import { CountUpText } from '@/components/animations/CountUpText';
+import { FadeInSlide } from '@/components/animations/FadeInSlide';
+import { StaggeredList } from '@/components/animations/StaggeredList';
+import { ShimmerPlaceholder } from '@/components/animations/ShimmerPlaceholder';
+import { getDashboardSummary, getCumulativeSubjects } from '@/api';
 
-// Helper for Roman numerals
-function toRoman(num: number): string {
-  const lookup: Record<string, number> = {M:1000,CM:900,D:500,CD:400,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1};
-  let roman = '';
-  for (let i in lookup) {
-    while (num >= lookup[i]) {
-      roman += i;
-      num -= lookup[i];
-    }
-  }
-  return roman || 'I';
+/** Attendance math, kept verbatim from the original business logic. */
+function subjectStatus(present: number, total: number) {
+  const needed = Math.max(0, 3 * total - 4 * present);
+  const safeToSkip = Math.floor(Math.max(0, (4 * present - 3 * total) / 3));
+  return { needed, safeToSkip };
 }
 
 export default function DashboardScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors } = useTheme();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const sum = await getDashboardSummary();
-      const sub = await getCumulativeSubjects();
+      const [sum, sub] = await Promise.all([getDashboardSummary(), getCumulativeSubjects()]);
       if (sum) setSummary(sum);
       if (sub) setSubjects(sub);
     } catch (error) {
@@ -51,318 +36,237 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchData();
     setRefreshing(false);
-  }, []);
+  }, [fetchData]);
 
-  // Dynamic greeting based on time of day
   const hour = new Date().getHours();
-  let greeting = 'Good Evening';
-  if (hour < 12) greeting = 'Good Morning';
-  else if (hour < 18) greeting = 'Good Afternoon';
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const textColor = isDark ? '#F8FAFC' : '#0F172A';
-  const mutedColor = isDark ? '#94A3B8' : '#64748B';
+  const overallPercentage =
+    subjects.length > 0
+      ? subjects.reduce((a: number, c: any) => a + (c.percentage || 0), 0) / subjects.length
+      : summary?.overall?.percentage || 0;
 
-  // Compute overall percentage from subjects data (matches original logic)
-  const overallPercentage = subjects.length > 0
-    ? subjects.reduce((a: number, c: any) => a + (c.percentage || 0), 0) / subjects.length
-    : summary?.overall?.percentage || 0;
-
-  // Analytical Stats Math
   const totalPresents = summary?.overall?.present || 0;
   const totalAbsents = summary?.overall?.absent || 0;
   const totalClasses = summary?.overall?.total || 0;
-  
-  const globalNeeded = Math.max(0, 3 * totalClasses - 4 * totalPresents);
-  const globalSafeToSkip = Math.floor(Math.max(0, (4 * totalPresents - 3 * totalClasses) / 3));
+  const streak = summary?.overall?.streak || 0;
 
-  let dynamicSubtitle = "Here's your attendance overview";
+  const { needed: globalNeeded, safeToSkip: globalSafeToSkip } = subjectStatus(totalPresents, totalClasses);
+  const isSafe = overallPercentage >= 75;
+  const isWarning = overallPercentage >= 60 && overallPercentage < 75;
+  const zone = zoneColor(colors, overallPercentage);
+
+  let subtitle = "Here's where your attendance stands.";
   if (totalClasses > 0) {
-    if (globalNeeded > 0) {
-      dynamicSubtitle = `Critical zone. You need to attend ${globalNeeded} more classes.`;
-    } else if (globalSafeToSkip > 0) {
-      dynamicSubtitle = `You're in the clear. You can safely skip ${globalSafeToSkip} classes.`;
-    } else {
-      dynamicSubtitle = `Perfectly balanced. Don't miss your next class.`;
-    }
+    if (globalNeeded > 0) subtitle = `Critical — attend ${globalNeeded} more to reach 75%.`;
+    else if (globalSafeToSkip > 0) subtitle = `You're clear to skip ${globalSafeToSkip} without dropping below 75%.`;
+    else subtitle = "Perfectly balanced — don't miss the next one.";
   }
 
+  const zoneLabel = isSafe ? 'Safe zone' : isWarning ? 'At risk' : 'Danger zone';
+
   return (
-    <GradientBackground>
-      {loading || !summary ? (
-        <FullScreenLoader />
-      ) : (
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: 20 }]}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={isDark ? '#F8FAFC' : '#0F172A'}
-              colors={[isDark ? '#F8FAFC' : '#0F172A']}
-              progressBackgroundColor={isDark ? '#0A1628' : '#F0F2F8'}
-            />
-          }
-        >
-          <View style={styles.content}>
-            {/* Greeting Header */}
-            <FadeInSlide delay={0}>
-              <View style={styles.headerRow}>
-                <View style={styles.headerTextContainer}>
-                  <Text style={[styles.greeting, { color: textColor }]}>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} colors={[colors.accent]} />
+        }
+      >
+        {loading ? (
+          <DashboardSkeleton />
+        ) : (
+          <>
+            <FadeInSlide>
+              <View style={styles.header}>
+                <View style={styles.headerText}>
+                  <AppText variant="h1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
                     {greeting}
-                  </Text>
-                  <Text style={[styles.subtitle, { color: mutedColor }]}>
-                    {dynamicSubtitle}
-                  </Text>
+                  </AppText>
+                  <AppText variant="bodySm" tone="secondary" style={styles.subtitle}>
+                    {subtitle}
+                  </AppText>
                 </View>
-                <Image 
-                  source={require('../../../assets/teddy.jpg')} 
-                  style={styles.teddyMascot} 
+                <Image
+                  source={require('../../../assets/teddy.jpg')}
+                  style={[styles.mascot, { borderColor: colors.hairline }]}
                 />
               </View>
             </FadeInSlide>
 
-            {/* Hero Stats Card */}
-            <FadeInSlide delay={100}>
-              <GlassCard style={styles.heroCard} animated={false}>
-                <View style={styles.heroCenter}>
+            <FadeInSlide delay={80}>
+              <Card padding={space.xxl} style={styles.hero}>
+                <View style={styles.heroTopRow}>
+                  <AppText variant="eyebrow" tone="muted">
+                    Overall attendance
+                  </AppText>
+                  <View style={[styles.zoneChip, { backgroundColor: zone + '22', borderColor: colors.hairline }]}>
+                    <View style={[styles.zoneDot, { backgroundColor: zone }]} />
+                    <AppText style={[type.bodySmMedium, { color: zone }]}>{zoneLabel}</AppText>
+                  </View>
+                </View>
+
+                <View style={styles.heroMetricRow}>
                   <CountUpText
                     value={overallPercentage}
-                    style={[styles.heroPercentage, { color: textColor }]}
-                    suffix="%"
+                    style={[type.metricHero, { color: colors.textPrimary }]}
+                    suffix=""
                     decimals={1}
-                    duration={1400}
+                    duration={motion.timing.metric}
                   />
-                  <View style={[
-                    styles.zoneBadge, 
-                    { backgroundColor: overallPercentage >= 75 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }
-                  ]}>
-                    <Text style={[
-                      styles.zoneText,
-                      { color: overallPercentage >= 75 ? '#22C55E' : '#EF4444' }
-                    ]}>
-                      {overallPercentage >= 75 ? 'Safe Zone' : 'Danger Zone'}
-                    </Text>
-                  </View>
+                  <AppText style={[type.metricLg, styles.percentSign, { color: colors.textMuted }]}>%</AppText>
                 </View>
+
+                <ProgressBar progress={overallPercentage} color={zone} height={6} />
+
+                <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
 
                 <View style={styles.statsRow}>
-                  <View style={styles.statCol}>
-                    <Text style={[styles.statLabel, { color: mutedColor }]}>
-                      PRESENT
-                    </Text>
-                    <CountUpText
-                      value={totalPresents}
-                      style={[styles.statValue, { color: '#22C55E' }]}
-                      decimals={0}
-                    />
-                  </View>
-                  <View style={styles.statCol}>
-                    <Text style={[styles.statLabel, { color: mutedColor }]}>
-                      ABSENT
-                    </Text>
-                    <CountUpText
-                      value={totalAbsents}
-                      style={[styles.statValue, { color: '#EF4444' }]}
-                      decimals={0}
-                    />
-                  </View>
-                  <View style={styles.statCol}>
-                    <Text style={[styles.statLabel, { color: mutedColor }]}>
-                      STREAK
-                    </Text>
-                    <CountUpText
-                      value={summary.overall?.streak || 0}
-                      style={[styles.statValue, { color: textColor }]}
-                      decimals={0}
-                    />
-                  </View>
+                  <Stat label="Present">
+                    <CountUpText value={totalPresents} style={[type.metricLg, { color: colors.success }]} decimals={0} />
+                  </Stat>
+                  <View style={[styles.statDivider, { backgroundColor: colors.hairline }]} />
+                  <Stat label="Absent">
+                    <CountUpText value={totalAbsents} style={[type.metricLg, { color: colors.danger }]} decimals={0} />
+                  </Stat>
+                  <View style={[styles.statDivider, { backgroundColor: colors.hairline }]} />
+                  <Stat label="Streak">
+                    <CountUpText value={streak} style={[type.metricLg, { color: colors.textPrimary }]} decimals={0} />
+                  </Stat>
                 </View>
-              </GlassCard>
+              </Card>
             </FadeInSlide>
 
-            {/* Subjects Section */}
-            <FadeInSlide delay={200}>
-              <Text style={[styles.sectionTitle, { color: textColor }]}>
-                Subjects
-              </Text>
-            </FadeInSlide>
+            <View style={styles.sectionHeader}>
+              <FadeInSlide delay={160}>
+                <SectionHeader
+                  eyebrow="Per subject"
+                  title="Subjects"
+                  trailing={<AppText variant="mono" tone="muted">{subjects.length}</AppText>}
+                />
+              </FadeInSlide>
+            </View>
 
-            <StaggeredList staggerDelay={60}>
-              {subjects.map((subject: any) => {
-                const p = subject.present || 0;
-                const t = subject.total || 0;
-                const needed = Math.max(0, 3 * t - 4 * p);
-                const safeToSkip = Math.floor(Math.max(0, (4 * p - 3 * t) / 3));
+            {subjects.length === 0 ? (
+              <EmptyState
+                icon={<Inbox size={26} color={colors.textMuted} strokeWidth={2} />}
+                title="No subjects yet"
+                description="Log your first class from the Add tab and your subjects will appear here."
+              />
+            ) : (
+              <StaggeredList staggerDelay={55}>
+                {subjects.map((subject: any) => {
+                  const present = subject.present || 0;
+                  const total = subject.total || 0;
+                  const pct = subject.percentage || 0;
+                  const { needed, safeToSkip } = subjectStatus(present, total);
+                  const line =
+                    needed > 0
+                      ? { text: `${needed} more for 75%`, tone: colors.danger }
+                      : safeToSkip > 0
+                        ? { text: `Safe to skip ${safeToSkip}`, tone: colors.success }
+                        : { text: 'On track', tone: colors.warning };
 
-                return (
-                  <GlassCard
-                    key={subject.subject}
-                    style={styles.subjectCard}
-                    animated={false}
-                  >
-                    <View style={styles.subjectInfo}>
-                      <Text style={[styles.subjectName, { color: textColor }]}>
-                        {subject.subject}
-                      </Text>
-                      <Text style={[styles.subjectClasses, { color: mutedColor }]}>
-                        {subject.present} / {subject.total} Classes
-                      </Text>
-                      {needed > 0 ? (
-                        <Text style={[styles.neededText, { color: '#EF4444' }]}>
-                          {needed} more {needed === 1 ? 'class' : 'classes'} for 75%
-                        </Text>
-                      ) : safeToSkip > 0 ? (
-                        <Text style={[styles.neededText, { color: '#22C55E' }]}>
-                          Safe to skip {safeToSkip} {safeToSkip === 1 ? 'class' : 'classes'}
-                        </Text>
-                      ) : (
-                        <Text style={[styles.neededText, { color: '#EAB308' }]}>
-                          On track. Don't miss the next one.
-                        </Text>
-                      )}
-                    </View>
-                    <ProgressRing
-                      percentage={subject.percentage || 0}
-                      size={56}
-                      strokeWidth={5}
-                    />
-                  </GlassCard>
-                );
-              })}
-            </StaggeredList>
-          </View>
-        </ScrollView>
-      )}
-    </GradientBackground>
+                  return (
+                    <Card key={subject.subject} style={styles.subjectCard}>
+                      <View style={styles.subjectInfo}>
+                        <AppText variant="bodyMedium" numberOfLines={1}>
+                          {subject.subject}
+                        </AppText>
+                        <AppText style={[type.mono, styles.subjectMeta, { color: colors.textMuted }]}>
+                          {present} / {total} classes
+                        </AppText>
+                        <View style={styles.subjectStatusRow}>
+                          <View style={[styles.statusDot, { backgroundColor: line.tone }]} />
+                          <AppText style={[type.bodySmMedium, { color: line.tone }]}>{line.text}</AppText>
+                        </View>
+                      </View>
+                      <ProgressRing percentage={pct} size={54} strokeWidth={5} />
+                    </Card>
+                  );
+                })}
+              </StaggeredList>
+            )}
+          </>
+        )}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <View>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <ShimmerPlaceholder width={180} height={28} />
+          <ShimmerPlaceholder width={240} height={14} style={{ marginTop: space.sm }} />
+        </View>
+        <ShimmerPlaceholder width={48} height={48} borderRadius={radius.md} />
+      </View>
+      <ShimmerPlaceholder height={196} borderRadius={radius.md} style={styles.hero} />
+      <ShimmerPlaceholder width={140} height={24} style={styles.sectionHeader} />
+      <View style={{ gap: space.md }}>
+        {[0, 1, 2, 3].map((i) => (
+          <ShimmerPlaceholder key={i} height={92} borderRadius={radius.md} />
+        ))}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: 100,
-  },
   content: {
-    padding: 20,
+    paddingHorizontal: GUTTER,
+    paddingTop: space.md,
+    paddingBottom: space.huge,
   },
-  headerRow: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
+    alignItems: 'flex-start',
+    marginBottom: space.xxl,
   },
-  headerTextContainer: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  teddyMascot: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  greeting: {
-    fontSize: 28,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  heroCard: {
-    padding: 28,
-    marginBottom: 32,
-  },
-  heroCenter: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  heroPercentage: {
-    fontSize: 56,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  zoneBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  zoneText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  statsRow: {
+  headerText: { flex: 1, paddingRight: space.lg },
+  subtitle: { marginTop: space.xs },
+  mascot: { width: 48, height: 48, borderRadius: radius.md, borderWidth: 1 },
+  hero: { marginBottom: space.xxxl },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.lg },
+  zoneChip: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  statCol: {
     alignItems: 'center',
-    flex: 1,
+    gap: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
   },
-  statLabel: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    fontWeight: '700',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 16,
-  },
+  zoneDot: { width: 6, height: 6, borderRadius: radius.pill },
+  heroMetricRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: space.lg },
+  percentSign: { marginBottom: space.sm, marginLeft: space.xs },
+  divider: { height: 1, marginVertical: space.xl },
+  statsRow: { flexDirection: 'row', alignItems: 'center' },
+  statDivider: { width: 1, height: 32 },
+  sectionHeader: { marginBottom: space.lg },
   subjectCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 12,
+    marginBottom: space.md,
   },
-  subjectInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  subjectName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  subjectClasses: {
-    fontSize: 14,
-  },
-  neededText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  heroSkeleton: {
-    height: 220,
-    marginBottom: 32,
-    borderRadius: 20,
-  },
-  subjectSkeleton: {
-    height: 88,
-    borderRadius: 20,
-    marginBottom: 12,
-  },
+  subjectInfo: { flex: 1, marginRight: space.lg, gap: space.xs },
+  subjectMeta: {},
+  subjectStatusRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.xs },
+  statusDot: { width: 6, height: 6, borderRadius: radius.pill },
 });

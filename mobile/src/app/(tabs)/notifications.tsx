@@ -1,28 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  RefreshControl,
-  useColorScheme,
-} from 'react-native';
-import { Bell, CheckCircle, AlertCircle, Clock } from 'lucide-react-native';
-import { getNotificationHistory } from '../../api';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { Bell, CheckCircle2, AlertTriangle, XCircle, Clock, type LucideIcon } from 'lucide-react-native';
 
-import { GlassCard } from '../../components/ui/GlassCard';
-import { GradientBackground } from '../../components/ui/GradientBackground';
-import { FadeInSlide } from '../../components/animations/FadeInSlide';
-import { StaggeredList } from '../../components/animations/StaggeredList';
-import { ShimmerCard } from '../../components/animations/ShimmerPlaceholder';
-import Animated, { 
-  FadeInDown, 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withRepeat, 
-  withSequence, 
-  withTiming 
-} from 'react-native-reanimated';
+import { GUTTER, space, radius, type, ICON_STROKE } from '@/design/tokens';
+import { useTheme } from '@/design/theme';
+import type { ColorTokens } from '@/design/tokens';
+import { Screen, Card, EmptyState, AppText } from '@/components/ui';
+import { FadeInSlide } from '@/components/animations/FadeInSlide';
+import { StaggeredList } from '@/components/animations/StaggeredList';
+import { ShimmerPlaceholder } from '@/components/animations/ShimmerPlaceholder';
+import { getNotificationHistory } from '@/api';
 
 interface NotificationItem {
   id: number;
@@ -56,64 +43,26 @@ function formatTimeAgo(isoString: string): string {
   }
 }
 
-function StatusIcon({ status, isDark }: { status: string; isDark: boolean }) {
+/** One place that maps a delivery status to its color, icon, and human label. */
+function statusMeta(status: string, colors: ColorTokens): { color: string; Icon: LucideIcon; label: string } {
   switch (status) {
     case 'success':
-      return <CheckCircle size={16} color="#22c55e" />;
+      return { color: colors.success, Icon: CheckCircle2, label: 'Delivered' };
     case 'partial':
-      return <AlertCircle size={16} color="#eab308" />;
+      return { color: colors.warning, Icon: AlertTriangle, label: 'Partially delivered' };
     case 'failed':
-      return <AlertCircle size={16} color="#ef4444" />;
+      return { color: colors.danger, Icon: XCircle, label: 'Failed' };
     default:
-      return <Clock size={16} color={isDark ? '#94A3B8' : '#64748B'} />;
+      return { color: colors.textMuted, Icon: Clock, label: 'Pending' };
   }
-}
-
-function statusColor(status: string): string {
-  switch (status) {
-    case 'success': return '#22c55e';
-    case 'partial': return '#eab308';
-    case 'failed': return '#ef4444';
-    default: return '#94A3B8';
-  }
-}
-
-function AnimatedBell({ isDark }: { isDark: boolean }) {
-  const rotation = useSharedValue(0);
-
-  useEffect(() => {
-    rotation.value = withRepeat(
-      withSequence(
-        withTiming(10, { duration: 150 }),
-        withTiming(-10, { duration: 150 }),
-        withTiming(10, { duration: 150 }),
-        withTiming(0, { duration: 150 }),
-        withTiming(0, { duration: 2000 })
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ rotate: `${rotation.value}deg` }]
-    };
-  });
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <Bell size={28} color={isDark ? '#F8FAFC' : '#0F172A'} />
-    </Animated.View>
-  );
 }
 
 export default function NotificationsScreen() {
+  const { colors } = useTheme();
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
     const data = await getNotificationHistory();
@@ -131,189 +80,86 @@ export default function NotificationsScreen() {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  const textColor = isDark ? '#F8FAFC' : '#0F172A';
-  const mutedColor = isDark ? '#94A3B8' : '#64748B';
-
-  const styles = StyleSheet.create({
-    content: {
-      padding: 16,
-      paddingTop: 20,
-      paddingBottom: 120,
-    },
-    headerCard: {
-      alignItems: 'center',
-      padding: 24,
-      marginBottom: 24,
-    },
-    bellContainer: {
-      width: 64,
-      height: 64,
-      borderRadius: 32,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: textColor,
-      marginBottom: 4,
-    },
-    headerSubtitle: {
-      fontSize: 14,
-      color: mutedColor,
-    },
-    notifCard: {
-      marginBottom: 12,
-      padding: 16,
-    },
-    notifHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 6,
-    },
-    notifTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: textColor,
-      flex: 1,
-    },
-    notifTime: {
-      fontSize: 12,
-      color: mutedColor,
-      marginLeft: 8,
-    },
-    notifBody: {
-      fontSize: 14,
-      color: isDark ? '#CBD5E1' : '#475569',
-      lineHeight: 20,
-      marginBottom: 12,
-    },
-    notifFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    notifStatus: {
-      fontSize: 12,
-      fontWeight: '600',
-      textTransform: 'capitalize',
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60,
-    },
-    emptyIcon: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 16,
-    },
-    emptyTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: textColor,
-      marginBottom: 8,
-    },
-    emptySubtitle: {
-      fontSize: 14,
-      color: mutedColor,
-      textAlign: 'center',
-      paddingHorizontal: 40,
-    },
-  });
+  const countLabel = notifications.length > 0
+    ? `${notifications.length} sent`
+    : 'Nothing sent yet';
 
   return (
-    <GradientBackground>
+    <Screen>
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={textColor}
-            colors={[textColor]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} colors={[colors.accent]} />
         }
       >
-        <FadeInSlide delay={0}>
-          <GlassCard style={styles.headerCard}>
-            <View style={styles.bellContainer}>
-              <AnimatedBell isDark={isDark} />
+        <FadeInSlide>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <AppText variant="h1">Alerts</AppText>
+              <AppText variant="bodySm" tone="secondary" style={styles.subtitle}>
+                Push notifications sent to your device.
+              </AppText>
             </View>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <Text style={styles.headerSubtitle}>
-              {notifications.length > 0
-                ? `${notifications.length} notification${notifications.length !== 1 ? 's' : ''} sent`
-                : 'No notifications yet'}
-            </Text>
-          </GlassCard>
+            <AppText variant="mono" tone="muted">
+              {countLabel}
+            </AppText>
+          </View>
         </FadeInSlide>
 
         {loading ? (
-          <View style={{ gap: 12 }}>
-            <ShimmerCard height={120} />
-            <ShimmerCard height={120} />
-            <ShimmerCard height={120} />
+          <View style={styles.skeletonList}>
+            {[0, 1, 2].map((i) => (
+              <ShimmerPlaceholder key={i} height={108} borderRadius={radius.md} />
+            ))}
           </View>
         ) : notifications.length === 0 ? (
-          <Animated.View entering={FadeInDown.delay(200)}>
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIcon}>
-                <AnimatedBell isDark={isDark} />
-              </View>
-              <Text style={styles.emptyTitle}>All quiet here</Text>
-              <Text style={styles.emptySubtitle}>
-                Push notifications you receive will appear here
-              </Text>
-            </View>
-          </Animated.View>
+          <EmptyState
+            icon={<Bell size={26} color={colors.textMuted} strokeWidth={ICON_STROKE} />}
+            title="All quiet"
+            description="Reminders and alerts you receive will be collected here so you never miss one."
+          />
         ) : (
-          <StaggeredList>
+          <StaggeredList staggerDelay={55}>
             {notifications.map((notif) => {
-              const bColor = statusColor(notif.status);
+              const meta = statusMeta(notif.status, colors);
               return (
-                <GlassCard 
-                  key={notif.id} 
-                  style={{
-                    ...styles.notifCard, 
-                    borderLeftWidth: 3, 
-                    borderLeftColor: bColor,
-                  }}
-                >
+                <Card key={notif.id} style={styles.notifCard} accentColor={meta.color}>
                   <View style={styles.notifHeader}>
-                    <Text style={styles.notifTitle} numberOfLines={1}>
+                    <AppText variant="bodyMedium" numberOfLines={1} style={styles.notifTitle}>
                       {notif.title}
-                    </Text>
-                    <Text style={styles.notifTime}>
+                    </AppText>
+                    <AppText style={[type.mono, styles.notifTime, { color: colors.textMuted }]}>
                       {formatTimeAgo(notif.sent_at)}
-                    </Text>
+                    </AppText>
                   </View>
-                  <Text style={styles.notifBody}>{notif.body}</Text>
+                  <AppText variant="bodySm" tone="secondary" style={styles.notifBody}>
+                    {notif.body}
+                  </AppText>
                   <View style={styles.notifFooter}>
-                    <StatusIcon status={notif.status} isDark={isDark} />
-                    <Text style={[styles.notifStatus, { color: bColor }]}>
-                      {notif.status === 'success'
-                        ? 'Delivered'
-                        : notif.status === 'partial'
-                        ? 'Partially delivered'
-                        : notif.status === 'failed'
-                        ? 'Failed'
-                        : 'Pending'}
-                    </Text>
+                    <meta.Icon size={14} color={meta.color} strokeWidth={ICON_STROKE} />
+                    <AppText style={[type.bodySmMedium, { color: meta.color }]}>{meta.label}</AppText>
                   </View>
-                </GlassCard>
+                </Card>
               );
             })}
           </StaggeredList>
         )}
       </ScrollView>
-    </GradientBackground>
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingHorizontal: GUTTER, paddingTop: space.md, paddingBottom: space.xxxl },
+  header: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: space.xl, gap: space.md },
+  headerText: { flex: 1 },
+  subtitle: { marginTop: space.xs },
+  skeletonList: { gap: space.md },
+  notifCard: { marginBottom: space.md, paddingLeft: space.lg + 3 },
+  notifHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md, marginBottom: space.sm },
+  notifTitle: { flex: 1 },
+  notifTime: {},
+  notifBody: { marginBottom: space.md },
+  notifFooter: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+});

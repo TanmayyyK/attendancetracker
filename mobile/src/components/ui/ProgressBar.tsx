@@ -1,67 +1,38 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from 'react-native-reanimated';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+
+import { motion, radius } from '@/design/tokens';
+import { useTheme } from '@/design/theme';
 
 interface ProgressBarProps {
-  progress: number; // 0 to 100
+  progress: number; // 0..100
   color: string;
   trackColor?: string;
   height?: number;
 }
 
-export function ProgressBar({
-  progress,
-  color,
-  trackColor = 'rgba(255,255,255,0.05)',
-  height = 4,
-}: ProgressBarProps) {
-  const animatedProgress = useSharedValue(0);
+/** A flat, animated track fill. No glow, no shadow — just a clean bar. */
+export function ProgressBar({ progress, color, trackColor, height = 6 }: ProgressBarProps) {
+  const { colors } = useTheme();
+  const value = useSharedValue(0);
 
   useEffect(() => {
-    animatedProgress.value = withTiming(Math.max(0, Math.min(100, progress)), {
-      duration: 1500,
+    value.value = withTiming(Math.max(0, Math.min(100, progress)), {
+      duration: motion.timing.progress,
       easing: Easing.out(Easing.cubic),
     });
-  }, [progress]);
+  }, [progress, value]);
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      width: `${animatedProgress.value}%`,
-    };
-  });
+  const fillStyle = useAnimatedStyle(() => ({ width: `${value.value}%` }));
 
   return (
-    <View style={[styles.track, { backgroundColor: trackColor, height, borderRadius: height / 2 }]}>
-      <Animated.View
-        style={[
-          styles.fill,
-          animatedStyle,
-          {
-            backgroundColor: color,
-            shadowColor: color,
-            height,
-            borderRadius: height / 2,
-          },
-        ]}
-      />
+    <View style={[styles.track, { backgroundColor: trackColor ?? colors.hairlineStrong, height, borderRadius: radius.pill }]}>
+      <Animated.View style={[fillStyle, { backgroundColor: color, height, borderRadius: radius.pill }]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  track: {
-    width: '100%',
-    overflow: 'hidden',
-  },
-  fill: {
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 4,
-  },
+  track: { width: '100%', overflow: 'hidden' },
 });

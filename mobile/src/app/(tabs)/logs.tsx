@@ -1,47 +1,44 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, Alert, useColorScheme } from 'react-native';
-import { Trash2, Download, SearchX } from 'lucide-react-native';
-import { getAttendanceLogs, deleteAttendanceLog } from '../../api';
+import { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl, Alert, Pressable } from 'react-native';
+import { Trash2, Download, ScrollText } from 'lucide-react-native';
+import Animated, { FadeInDown, FadeOutRight, LinearTransition } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 
-import { GlassCard } from '../../components/ui/GlassCard';
-import { GradientBackground } from '../../components/ui/GradientBackground';
-import { StatusPill } from '../../components/ui/StatusPill';
-import { AnimatedPressable } from '../../components/animations/AnimatedPressable';
-import { FadeInSlide } from '../../components/animations/FadeInSlide';
-import { StaggeredList } from '../../components/animations/StaggeredList';
-import { ShimmerCard } from '../../components/animations/ShimmerPlaceholder';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeOutRight, Layout } from 'react-native-reanimated';
+import { GUTTER, space, radius, type, ICON_STROKE } from '@/design/tokens';
+import { useTheme } from '@/design/theme';
+import { Screen, Card, Button, StatusPill, EmptyState, AppText } from '@/components/ui';
+import { ShimmerPlaceholder } from '@/components/animations/ShimmerPlaceholder';
+import { getAttendanceLogs, deleteAttendanceLog } from '@/api';
 
 export default function Logs() {
+  const { colors } = useTheme();
+
   const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
-
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     const data = await getAttendanceLogs();
     setLogs(data);
-  };
+    setLoading(false);
+  }, []);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchLogs();
     setRefreshing(false);
-  };
+  }, [fetchLogs]);
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [fetchLogs]);
 
   const handleDelete = (id: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Delete Entry', 'Are you sure you want to delete this record?', [
+    Alert.alert('Delete entry', 'This record will be permanently removed.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -49,7 +46,7 @@ export default function Logs() {
         onPress: async () => {
           const success = await deleteAttendanceLog(id);
           if (success) {
-            setLogs(logs.filter(log => log.id !== id));
+            setLogs((prev) => prev.filter((log) => log.id !== id));
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           } else {
             Alert.alert('Error', 'Failed to delete record.');
@@ -69,7 +66,7 @@ export default function Logs() {
         return;
       }
 
-      const wsData = filteredLogs.map(log => ({
+      const wsData = filteredLogs.map((log) => ({
         Date: log.date,
         Time: log.timestamp,
         Subject: log.subject,
@@ -97,132 +94,101 @@ export default function Logs() {
     }
   };
 
-  const styles = StyleSheet.create({
-    listContent: {
-      padding: 16,
-      paddingTop: 20,
-      paddingBottom: 120,
-    },
-    logDetails: {
-      flex: 1,
-    },
-    subjectText: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: isDark ? '#F8FAFC' : '#0F172A',
-      marginBottom: 4,
-    },
-    metaText: {
-      fontSize: 14,
-      color: isDark ? '#94A3B8' : '#64748B',
-    },
-    deleteBtn: {
-      padding: 10,
-      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-      borderRadius: 12,
-      marginLeft: 12,
-    },
-    exportBtnContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 16,
-      position: 'relative',
-      overflow: 'hidden',
-    },
-    exportBtnText: {
-      color: isDark ? '#F8FAFC' : '#0F172A',
-      fontSize: 16,
-      fontWeight: 'bold',
-      marginLeft: 8,
-    },
-    leftBorder: {
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      bottom: 0,
-      width: 4,
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: 60,
-    },
-    emptyText: {
-      fontSize: 16,
-      color: isDark ? '#94A3B8' : '#64748B',
-      marginTop: 12,
-    }
-  });
-
-  const renderItem = ({ item, index }: { item: any; index: number }) => {
-    return (
-      <Animated.View
-        entering={FadeInDown.delay(index * 40).springify()}
-        exiting={FadeOutRight}
-        layout={Layout.springify()}
-        style={{ marginBottom: 12 }}
-      >
-        <GlassCard animated={false} style={{ padding: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View style={styles.logDetails}>
-              <Text style={styles.subjectText}>{item.subject}</Text>
-              <Text style={styles.metaText}>
-                {new Date(item.date).toLocaleDateString()}
-              </Text>
-            </View>
-            
-            <StatusPill status={item.status} />
-            
-            <AnimatedPressable onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-              <Trash2 size={18} color="#ef4444" />
-            </AnimatedPressable>
-          </View>
-        </GlassCard>
-      </Animated.View>
-    );
-  };
-
-  const renderEmpty = () => (
-    <Animated.View entering={FadeInDown.delay(100).springify()} style={styles.emptyContainer}>
-      <SearchX size={48} color={isDark ? '#94A3B8' : '#64748B'} strokeWidth={1.5} />
-      <Text style={styles.emptyText}>No logs found.</Text>
+  const renderItem = ({ item, index }: { item: any; index: number }) => (
+    <Animated.View
+      entering={FadeInDown.delay(Math.min(index, 8) * 40).springify()}
+      exiting={FadeOutRight.duration(200)}
+      layout={LinearTransition.springify().damping(20).stiffness(240)}
+      style={styles.rowWrap}
+    >
+      <Card style={styles.row}>
+        <View style={styles.rowInfo}>
+          <AppText variant="bodyMedium" numberOfLines={1}>
+            {item.subject}
+          </AppText>
+          <AppText style={[type.mono, { color: colors.textMuted }]}>
+            {new Date(item.date).toLocaleDateString()}
+          </AppText>
+        </View>
+        <StatusPill status={item.status} />
+        <Pressable
+          onPress={() => handleDelete(item.id)}
+          hitSlop={8}
+          style={styles.deleteBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Delete entry"
+        >
+          <Trash2 size={18} color={colors.danger} strokeWidth={ICON_STROKE} />
+        </Pressable>
+      </Card>
     </Animated.View>
   );
 
   return (
-    <GradientBackground>
-      <FlatList
-        data={logs}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor={isDark ? '#10b981' : '#059669'} 
-            colors={[isDark ? '#10b981' : '#059669']} 
-          />
-        }
-        ListHeaderComponent={
-          <FadeInSlide delay={0} style={{ marginBottom: 16 }}>
-            <AnimatedPressable onPress={handleExport}>
-              <GlassCard animated={false} style={{ padding: 0, overflow: 'hidden' }}>
-                <LinearGradient
-                  colors={['#10b981', '#34d399']}
-                  style={styles.leftBorder}
-                />
-                <View style={styles.exportBtnContent}>
-                  <Download size={20} color={isDark ? '#F8FAFC' : '#0F172A'} />
-                  <Text style={styles.exportBtnText}>Export Last 20</Text>
-                </View>
-              </GlassCard>
-            </AnimatedPressable>
-          </FadeInSlide>
-        }
-        ListEmptyComponent={renderEmpty}
-      />
-    </GradientBackground>
+    <Screen>
+      <View style={styles.header}>
+        <View style={styles.headerText}>
+          <AppText variant="h1">History</AppText>
+          <AppText variant="bodySm" tone="secondary" style={styles.subtitle}>
+            Every class you've logged, most recent first.
+          </AppText>
+        </View>
+        <Button
+          title="Export"
+          variant="secondary"
+          size="md"
+          fullWidth={false}
+          disabled={logs.length === 0}
+          onPress={handleExport}
+          icon={<Download size={16} color={colors.textPrimary} strokeWidth={ICON_STROKE} />}
+        />
+      </View>
+
+      {loading ? (
+        <View style={styles.skeletonList}>
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <ShimmerPlaceholder key={i} height={72} borderRadius={radius.md} />
+          ))}
+        </View>
+      ) : (
+        <FlatList
+          data={logs}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} colors={[colors.accent]} />
+          }
+          ListEmptyComponent={
+            <EmptyState
+              icon={<ScrollText size={26} color={colors.textMuted} strokeWidth={ICON_STROKE} />}
+              title="No entries yet"
+              description="Log attendance from the Add tab and each class will show up here."
+            />
+          }
+        />
+      )}
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: GUTTER,
+    paddingTop: space.md,
+    paddingBottom: space.lg,
+    gap: space.md,
+  },
+  headerText: { flex: 1 },
+  subtitle: { marginTop: space.xs },
+  skeletonList: { paddingHorizontal: GUTTER, paddingTop: space.xs, gap: space.md },
+  listContent: { paddingHorizontal: GUTTER, paddingTop: space.xs, paddingBottom: space.xxxl, flexGrow: 1 },
+  rowWrap: { marginBottom: space.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  rowInfo: { flex: 1, gap: space.xs },
+  deleteBtn: { width: 40, height: 40, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+});

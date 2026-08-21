@@ -6,6 +6,7 @@ import Animated, {
   FadeInLeft,
   FadeInRight,
 } from 'react-native-reanimated';
+import { motion } from '@/design/tokens';
 
 export interface FadeInSlideProps {
   children: React.ReactNode;
@@ -20,7 +21,7 @@ export const FadeInSlide: React.FC<FadeInSlideProps> = ({
   children,
   delay = 0,
   direction = 'up',
-  duration = 400,
+  duration = motion.timing.enter,
   style,
 }) => {
   const getEnteringAnimation = () => {

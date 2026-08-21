@@ -1,29 +1,25 @@
 import { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, useColorScheme } from 'react-native';
-import { getMonthlySnapshots, getDashboardSummary } from '../../api';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { Ghost, CalendarRange } from 'lucide-react-native';
 
-import { GlassCard } from '../../components/ui/GlassCard';
-import { GradientBackground } from '../../components/ui/GradientBackground';
-import { ProgressRing } from '../../components/ui/ProgressRing';
-import { FadeInSlide } from '../../components/animations/FadeInSlide';
-import { StaggeredList } from '../../components/animations/StaggeredList';
-import { ShimmerCard } from '../../components/animations/ShimmerPlaceholder';
-import { CalendarX } from 'lucide-react-native';
+import { GUTTER, space, radius, type, ICON_STROKE } from '@/design/tokens';
+import { useTheme } from '@/design/theme';
+import { Screen, Card, SectionHeader, ProgressRing, ProgressBar, EmptyState, AppText } from '@/components/ui';
+import { FadeInSlide } from '@/components/animations/FadeInSlide';
+import { StaggeredList } from '@/components/animations/StaggeredList';
+import { ShimmerPlaceholder } from '@/components/animations/ShimmerPlaceholder';
+import { getMonthlySnapshots, getDashboardSummary } from '@/api';
 
 export default function Insights() {
+  const { colors } = useTheme();
+
   const [snapshots, setSnapshots] = useState<any[]>([]);
   const [bunkReasons, setBunkReasons] = useState<any[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
-    const [data, summary] = await Promise.all([
-      getMonthlySnapshots(),
-      getDashboardSummary()
-    ]);
+    const [data, summary] = await Promise.all([getMonthlySnapshots(), getDashboardSummary()]);
     setSnapshots(data || []);
     setBunkReasons(summary?.bunk_reasons || []);
     setLoading(false);
@@ -39,143 +35,82 @@ export default function Insights() {
     fetchData();
   }, [fetchData]);
 
-  const textColor = isDark ? '#F8FAFC' : '#0F172A';
-  const mutedColor = isDark ? '#94A3B8' : '#64748B';
-
-  const styles = StyleSheet.create({
-    content: {
-      padding: 16,
-      paddingTop: 20,
-      paddingBottom: 120,
-    },
-    headerContainer: {
-      marginBottom: 24,
-      marginTop: 16,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: '800',
-      color: textColor,
-      marginBottom: 4,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: mutedColor,
-    },
-    cardContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    monthText: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: textColor,
-      marginBottom: 4,
-    },
-    classesText: {
-      fontSize: 14,
-      color: mutedColor,
-    },
-    emptyContainer: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60,
-    },
-    emptyTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: textColor,
-      marginTop: 16,
-      marginBottom: 8,
-    },
-    emptySubtitle: {
-      fontSize: 14,
-      color: mutedColor,
-      textAlign: 'center',
-    }
-  });
+  const maxCount = bunkReasons.length > 0 ? bunkReasons[0].count : 0;
 
   return (
-    <GradientBackground>
+    <Screen>
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh} 
-            tintColor={textColor} 
-            colors={[textColor]} 
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.textMuted} colors={[colors.accent]} />
         }
       >
-        <View style={styles.headerContainer}>
-          <FadeInSlide delay={0}>
-            <Text style={styles.title}>Bunk Analytics 👻</Text>
-            <Text style={styles.subtitle}>Where did your attendance go?</Text>
+        <FadeInSlide>
+          <View style={styles.header}>
+            <AppText variant="h1">Insights</AppText>
+            <AppText variant="bodySm" tone="secondary" style={styles.subtitle}>
+              Where your attendance goes, month over month.
+            </AppText>
+          </View>
+        </FadeInSlide>
+
+        <View style={styles.sectionHeader}>
+          <FadeInSlide delay={70}>
+            <SectionHeader eyebrow="Where it went" title="Bunk analytics" />
           </FadeInSlide>
         </View>
 
         {loading ? (
-          <ShimmerCard height={120} />
+          <ShimmerPlaceholder height={160} borderRadius={radius.md} style={styles.block} />
         ) : bunkReasons.length > 0 ? (
-          <FadeInSlide delay={100}>
-            <GlassCard style={{ marginBottom: 32, padding: 20 }}>
+          <FadeInSlide delay={110}>
+            <Card padding={space.xl} style={styles.block}>
               {bunkReasons.map((item: any, idx: number) => {
-                const max = bunkReasons[0].count;
-                const widthPct = max > 0 ? (item.count / max) * 100 : 0;
+                const widthPct = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                const barColor = idx === 0 ? colors.danger : colors.accent;
                 return (
-                  <View key={item.reason} style={{ marginBottom: idx === bunkReasons.length - 1 ? 0 : 16 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ color: textColor, fontWeight: '600', fontSize: 15 }}>{item.reason}</Text>
-                      <Text style={{ color: mutedColor, fontSize: 14 }}>{item.count} classes</Text>
+                  <View key={item.reason} style={idx === bunkReasons.length - 1 ? undefined : styles.reasonRow}>
+                    <View style={styles.reasonHead}>
+                      <AppText variant="bodyMedium">{item.reason}</AppText>
+                      <AppText style={[type.mono, { color: colors.textMuted }]}>{item.count}</AppText>
                     </View>
-                    <View style={{ height: 8, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: 4, overflow: 'hidden' }}>
-                        <LinearGradient 
-                          colors={idx === 0 ? ['#EF4444', '#DC2626'] : ['#7C3AED', '#6D28D9']}
-                          style={{ width: `${widthPct}%`, height: '100%', borderRadius: 4 }}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                        />
-                    </View>
+                    <ProgressBar progress={widthPct} color={barColor} height={6} />
                   </View>
-                )
+                );
               })}
-            </GlassCard>
+            </Card>
           </FadeInSlide>
         ) : (
-          <FadeInSlide delay={100}>
-            <GlassCard style={{ marginBottom: 32, padding: 20, alignItems: 'center' }}>
-              <Text style={{ color: mutedColor, textAlign: 'center' }}>No absent reasons logged yet. Stay in class!</Text>
-            </GlassCard>
-          </FadeInSlide>
+          <View style={styles.block}>
+            <EmptyState
+              icon={<Ghost size={26} color={colors.textMuted} strokeWidth={ICON_STROKE} />}
+              title="No absences logged"
+              description="Reasons you mark when logging an absence will break down here. Stay in class!"
+            />
+          </View>
         )}
 
-        <View style={[styles.headerContainer, { marginTop: 0 }]}>
-          <FadeInSlide delay={0}>
-            <Text style={styles.title}>Monthly Insights</Text>
-            <Text style={styles.subtitle}>Track your attendance trends</Text>
+        <View style={styles.sectionHeader}>
+          <FadeInSlide delay={70}>
+            <SectionHeader eyebrow="Trends" title="Monthly" />
           </FadeInSlide>
         </View>
 
         {loading ? (
-          <View style={{ gap: 16 }}>
-            <ShimmerCard height={100} />
-            <ShimmerCard height={100} />
-            <ShimmerCard height={100} />
+          <View style={styles.skeletonList}>
+            {[0, 1, 2].map((i) => (
+              <ShimmerPlaceholder key={i} height={88} borderRadius={radius.md} />
+            ))}
           </View>
         ) : snapshots.length === 0 ? (
-          <FadeInSlide delay={200}>
-            <View style={styles.emptyContainer}>
-              <CalendarX size={48} color={mutedColor} />
-              <Text style={styles.emptyTitle}>No Insights Yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Data will appear here once attendance is recorded.
-              </Text>
-            </View>
-          </FadeInSlide>
+          <EmptyState
+            icon={<CalendarRange size={26} color={colors.textMuted} strokeWidth={ICON_STROKE} />}
+            title="Nothing to chart yet"
+            description="Once you've recorded a full month, your attendance trend will appear here."
+          />
         ) : (
-          <StaggeredList>
+          <StaggeredList staggerDelay={55}>
             {snapshots.map((snap, index) => {
               const present = snap.overall?.present || 0;
               const total = snap.overall?.total || 0;
@@ -183,26 +118,35 @@ export default function Insights() {
               const percentage = snap.overall?.percentage || 0;
 
               return (
-                <GlassCard key={index} style={{ marginBottom: 16, padding: 16 }}>
-                  <View style={styles.cardContent}>
-                    <View>
-                      <Text style={styles.monthText}>{snap.label}</Text>
-                      <Text style={styles.classesText}>
-                        Present: {present} | Absent: {absent}
-                      </Text>
-                    </View>
-                    <ProgressRing 
-                      percentage={percentage} 
-                      size={56} 
-                      strokeWidth={5} 
-                    />
+                <Card key={index} style={styles.monthCard}>
+                  <View style={styles.monthInfo}>
+                    <AppText variant="bodyMedium" numberOfLines={1}>
+                      {snap.label}
+                    </AppText>
+                    <AppText style={[type.mono, { color: colors.textMuted }]}>
+                      {present} present · {absent} absent
+                    </AppText>
                   </View>
-                </GlassCard>
+                  <ProgressRing percentage={percentage} size={54} strokeWidth={5} />
+                </Card>
               );
             })}
           </StaggeredList>
         )}
       </ScrollView>
-    </GradientBackground>
+    </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  content: { paddingHorizontal: GUTTER, paddingTop: space.md, paddingBottom: space.xxxl },
+  header: { marginBottom: space.xl },
+  subtitle: { marginTop: space.xs },
+  sectionHeader: { marginBottom: space.lg, marginTop: space.sm },
+  block: { marginBottom: space.md },
+  reasonRow: { marginBottom: space.lg },
+  reasonHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm },
+  skeletonList: { gap: space.md },
+  monthCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md },
+  monthInfo: { flex: 1, marginRight: space.lg, gap: space.xs },
+});
