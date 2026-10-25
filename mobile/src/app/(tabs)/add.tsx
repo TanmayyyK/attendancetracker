@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { View, StyleSheet, TextInput, Alert, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -8,7 +8,11 @@ import { useTheme } from '@/design/theme';
 import { Screen, Card, Button, Stepper, BottomSheet, SectionHeader, AppText } from '@/components/ui';
 import { FadeInSlide } from '@/components/animations/FadeInSlide';
 import { StaggeredList } from '@/components/animations/StaggeredList';
+import { router } from 'expo-router';
 import { createBulkAttendance } from '@/api';
+import { getLocalTodayDateString, isValidCalendarDate } from '@/utils/dates';
+import { notifyAttendanceMutation } from '@/services/attendance/attendanceEventBus';
+import { computeSubmissionSignature } from '@/utils/submissionSafety';
 
 const SUBJECTS = [
   'Physiology',
@@ -26,8 +30,11 @@ export default function AddLog() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  // Use local calendar date instead of UTC to avoid midnight day-shift bugs
+  const [date, setDate] = useState(() => getLocalTodayDateString());
   const [saving, setSaving] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const lastAmbiguousSignatureRef = useRef<string | null>(null);
 
   const [subjectCounts, setSubjectCounts] = useState<Record<string, CountRow>>(
     Object.fromEntries(SUBJECTS.map((s) => [s, { present: 0, absent: 0, absent_reasons: [] }]))
@@ -86,15 +93,93 @@ export default function AddLog() {
     setGhostModalActive(null);
   };
 
+  const executeSubmission = async (rows: any[], signature: string) => {
+    isSubmittingRef.current = true;
+    setSaving(true);
+
+    try {
+      const result = await createBulkAttendance(rows);
+
+      if (result.outcome.kind === 'success') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('Saved', `${result.inserted} entries recorded.`);
+        lastAmbiguousSignatureRef.current = null;
+        // Reset form ONLY on verified success
+        setSubjectCounts(Object.fromEntries(SUBJECTS.map((s) => [s, { present: 0, absent: 0, absent_reasons: [] }])));
+        notifyAttendanceMutation();
+      } else if (result.outcome.kind === 'definite_rejection') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert('Could not save', result.outcome.error);
+        // Form counts are preserved so user can retry without re-entering
+        // Server rejected before commit, so clear ambiguous signature
+        lastAmbiguousSignatureRef.current = null;
+      } else {
+        // outcome.kind === 'ambiguous_failure'
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        // Form counts are preserved; do NOT emit invalidation
+        lastAmbiguousSignatureRef.current = signature;
+        Alert.alert(
+          'Submission Unconfirmed',
+          `${result.outcome.error}\n\nThe server may have already recorded your entries. To avoid duplicates, check your Dashboard before retrying.`,
+          [
+            {
+              text: 'Check Dashboard',
+              onPress: () => router.navigate('/(tabs)'),
+            },
+            {
+              text: 'Keep Form',
+              style: 'cancel',
+            },
+          ]
+        );
+      }
+    } catch (err: any) {
+      console.warn('[Add] Submission error:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      lastAmbiguousSignatureRef.current = signature;
+      Alert.alert(
+        'Submission Unconfirmed',
+        'An unexpected error occurred. The server may have already recorded your entries. Check your Dashboard before retrying.',
+        [
+          {
+            text: 'Check Dashboard',
+            onPress: () => router.navigate('/(tabs)'),
+          },
+          {
+            text: 'Keep Form',
+            style: 'cancel',
+          },
+        ]
+      );
+    } finally {
+      setSaving(false);
+      isSubmittingRef.current = false;
+    }
+  };
+
   const handleSave = async () => {
+    // Prevent duplicate submissions from rapid taps while in-flight
+    if (saving || isSubmittingRef.current) {
+      return;
+    }
+
+    // Strictly validate calendar date before touching network
+    const trimmedDate = date.trim();
+    if (!isValidCalendarDate(trimmedDate)) {
+      Alert.alert(
+        'Invalid Date',
+        `"${trimmedDate || date}" is not a valid date. Please use YYYY-MM-DD format (e.g. ${getLocalTodayDateString()}).`
+      );
+      return;
+    }
+
     if (totalRows === 0) {
       Alert.alert('Nothing to save', 'Add at least one class entry first.');
       return;
     }
 
-    setSaving(true);
     const rows = SUBJECTS.map((subject) => ({
-      date,
+      date: trimmedDate,
       mode: 'subject',
       subject,
       present: subjectCounts[subject].present,
@@ -102,17 +187,35 @@ export default function AddLog() {
       absent_reasons: subjectCounts[subject].absent_reasons,
     })).filter((r) => r.present + r.absent > 0);
 
-    const result = await createBulkAttendance(rows);
-    setSaving(false);
+    const currentSignature = computeSubmissionSignature(trimmedDate, rows);
 
-    if (result.ok) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Saved', `${result.inserted} entries recorded.`);
-      setSubjectCounts(Object.fromEntries(SUBJECTS.map((s) => [s, { present: 0, absent: 0, absent_reasons: [] }])));
-    } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Could not save', 'The entries failed to save. Check your connection and try again.');
+    // If identical payload was previously ambiguous, warn before resubmission
+    if (lastAmbiguousSignatureRef.current === currentSignature) {
+      Alert.alert(
+        'Possible Duplicate Submission',
+        'A previous submission of these exact attendance entries timed out or lost connection. The server may already have recorded them.\n\nSubmitting again could create duplicate entries. What would you like to do?',
+        [
+          {
+            text: 'Check Dashboard',
+            onPress: () => router.navigate('/(tabs)'),
+          },
+          {
+            text: 'Keep Form',
+            style: 'cancel',
+          },
+          {
+            text: 'Submit Anyway',
+            style: 'destructive',
+            onPress: () => {
+              void executeSubmission(rows, currentSignature);
+            },
+          },
+        ]
+      );
+      return;
     }
+
+    void executeSubmission(rows, currentSignature);
   };
 
   return (

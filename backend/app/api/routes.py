@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Optional
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlmodel import Session, delete, func, select
 
 from app.db.engine import get_session
@@ -30,9 +31,24 @@ def health():
 
 
 @router.get("/attendance")
-def list_attendance(session: Session = Depends(get_session)):
-    rows = session.exec(select(Attendance).order_by(Attendance.id.desc()).limit(100)).all()
-    return rows
+def list_attendance(
+    response: Response,
+    limit: int = Query(default=100, ge=1, le=200, description="Max records to return"),
+    before_id: Optional[int] = Query(default=None, ge=1, description="Cursor for keyset pagination (fetch id < before_id)"),
+    session: Session = Depends(get_session),
+):
+    stmt = select(Attendance).order_by(Attendance.id.desc())
+    if before_id is not None:
+        stmt = stmt.where(Attendance.id < before_id)
+
+    rows = session.exec(stmt.limit(limit + 1)).all()
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = items[-1].id if (items and has_more) else None
+
+    response.headers["X-Has-More"] = "true" if has_more else "false"
+    response.headers["X-Next-Cursor"] = str(next_cursor) if next_cursor is not None else ""
+    return items
 
 
 @router.post("/attendance")

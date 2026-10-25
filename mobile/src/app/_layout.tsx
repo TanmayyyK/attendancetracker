@@ -1,4 +1,4 @@
-import { Stack, router, type Href } from 'expo-router';
+import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -14,7 +14,11 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 
 import { palette } from '@/design/tokens';
-import { setupReminderSystem } from '@/services/reminders';
+import {
+  setupReminderSystem,
+  handleNotificationResponse,
+  setNavigationReady,
+} from '@/services/notifications';
 
 // Hold the native splash until the numeral font is ready, so the first frame
 // the user sees already has JetBrains Mono metrics — no font-swap reflow.
@@ -43,19 +47,17 @@ async function checkFirstTimeOpen() {
 
 function useNotificationNavigation() {
   useEffect(() => {
-    const redirect = (notification: Notifications.Notification) => {
-      const url = notification.request.content.data?.url;
-      if (url === '/(tabs)/' || url === '/(tabs)/add') {
-        router.push(url as Href);
-      }
-    };
-
+    // Check cold-start notification tap (deferred until layout is ready)
     const lastResponse = Notifications.getLastNotificationResponse();
-    if (lastResponse?.notification) redirect(lastResponse.notification);
+    if (lastResponse) {
+      handleNotificationResponse(lastResponse);
+    }
 
+    // Listen to background and foreground user interaction responses
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      redirect(response.notification);
+      handleNotificationResponse(response);
     });
+
     return () => subscription.remove();
   }, []);
 }
@@ -80,6 +82,8 @@ export default function RootLayout() {
   const onLayoutReady = useCallback(async () => {
     if (fontsLoaded) {
       await SplashScreen.hideAsync().catch(() => {});
+      // Signal navigation readiness and flush any queued notification destination
+      setNavigationReady(true);
     }
   }, [fontsLoaded]);
 
@@ -96,6 +100,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="planner" options={{ headerShown: false }} />
+        <Stack.Screen name="calendar" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style={colorScheme === 'light' ? 'dark' : 'light'} />
     </SafeAreaProvider>

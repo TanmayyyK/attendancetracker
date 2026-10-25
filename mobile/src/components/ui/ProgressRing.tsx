@@ -10,7 +10,7 @@ import { AppText } from './Text';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export interface ProgressRingProps {
-  percentage: number;
+  percentage: number | null;
   size?: number;
   strokeWidth?: number;
   showLabel?: boolean;
@@ -22,13 +22,14 @@ export function ProgressRing({ percentage, size = 56, strokeWidth = 4, showLabel
   const { colors } = useTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const color = zoneColor(colors, percentage);
+  const isNoData = percentage === null;
+  const color = isNoData ? colors.hairlineStrong : zoneColor(colors, percentage);
 
   const offset = useSharedValue(circumference);
   useEffect(() => {
-    const clamped = Math.max(0, Math.min(100, percentage));
+    const clamped = isNoData ? 0 : Math.max(0, Math.min(100, percentage));
     offset.value = withTiming(circumference - (clamped / 100) * circumference, { duration: motion.timing.progress });
-  }, [percentage, circumference, offset]);
+  }, [percentage, isNoData, circumference, offset]);
 
   const animatedProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
 
@@ -50,12 +51,12 @@ export function ProgressRing({ percentage, size = 56, strokeWidth = 4, showLabel
         />
       </Svg>
       {showLabel ? (
-        <View style={[StyleSheet.absoluteFillObject, styles.center]}>
+        <View style={[StyleSheet.absoluteFill, styles.center]}>
           <AppText
-            color={colors.textPrimary}
-            style={{ fontFamily: fonts.monoBold, fontSize: size * 0.26, letterSpacing: -0.5 }}
+            color={isNoData ? colors.textMuted : colors.textPrimary}
+            style={{ fontFamily: fonts.monoBold, fontSize: size * (isNoData ? 0.22 : 0.26), letterSpacing: -0.5 }}
           >
-            {Math.round(percentage)}
+            {isNoData ? '--' : Math.round(percentage)}
           </AppText>
         </View>
       ) : null}

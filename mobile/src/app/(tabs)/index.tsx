@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Image } from 'react-native';
-import { Inbox } from 'lucide-react-native';
+import { useState, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, RefreshControl, Image, Pressable } from 'react-native';
+import { Inbox, AlertTriangle, Calendar, ChevronRight, CalendarDays } from 'lucide-react-native';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 import { GUTTER, space, radius, type, motion } from '@/design/tokens';
 import { useTheme, zoneColor } from '@/design/theme';
@@ -9,71 +11,69 @@ import { CountUpText } from '@/components/animations/CountUpText';
 import { FadeInSlide } from '@/components/animations/FadeInSlide';
 import { StaggeredList } from '@/components/animations/StaggeredList';
 import { ShimmerPlaceholder } from '@/components/animations/ShimmerPlaceholder';
-import { getDashboardSummary, getCumulativeSubjects } from '@/api';
-
-/** Attendance math, kept verbatim from the original business logic. */
-function subjectStatus(present: number, total: number) {
-  const needed = Math.max(0, 3 * total - 4 * present);
-  const safeToSkip = Math.floor(Math.max(0, (4 * present - 3 * total) / 3));
-  return { needed, safeToSkip };
-}
+import { useAttendanceIntelligence } from '@/hooks/useAttendanceIntelligence';
+import { useAttendanceFocusRefresh } from '@/hooks/useAttendanceFocusRefresh';
+import { SubjectIntelligenceBadge } from '@/components/attendance/SubjectIntelligenceBadge';
+import { AttendanceIntelligenceSheet } from '@/components/attendance/AttendanceIntelligenceSheet';
+import type { SubjectIntelligenceItem } from '@/types/attendanceIntelligence';
 
 export default function DashboardScreen() {
   const { colors } = useTheme();
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [summary, setSummary] = useState<any>(null);
-  const [subjects, setSubjects] = useState<any[]>([]);
+  const {
+    loading,
+    refreshing,
+    error,
+    isApiError,
+    overall,
+    subjects,
+    setSubjectTarget,
+    resetSubjectTarget,
+    refresh,
+  } = useAttendanceIntelligence();
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [sum, sub] = await Promise.all([getDashboardSummary(), getCumulativeSubjects()]);
-      if (sum) setSummary(sum);
-      if (sub) setSubjects(sub);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [selectedSubjectName, setSelectedSubjectName] = useState<string | null>(null);
+  const selectedSubject = subjects.find((s) => s.subject === selectedSubjectName) ?? null;
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { markSynced } = useAttendanceFocusRefresh({
+    onRefresh: refresh,
+  });
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchData();
-    setRefreshing(false);
-  }, [fetchData]);
+    markSynced();
+    await refresh();
+  }, [refresh, markSynced]);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  const overallPercentage =
-    subjects.length > 0
-      ? subjects.reduce((a: number, c: any) => a + (c.percentage || 0), 0) / subjects.length
-      : summary?.overall?.percentage || 0;
+  const totalPresents = overall.present;
+  const totalAbsents = overall.absent;
+  const totalClasses = overall.total;
+  const streak = overall.streak;
 
-  const totalPresents = summary?.overall?.present || 0;
-  const totalAbsents = summary?.overall?.absent || 0;
-  const totalClasses = summary?.overall?.total || 0;
-  const streak = summary?.overall?.streak || 0;
+  const hasData = overall.hasData && overall.percentage !== null;
+  const overallPercentage = overall.percentage ?? 0;
 
-  const { needed: globalNeeded, safeToSkip: globalSafeToSkip } = subjectStatus(totalPresents, totalClasses);
-  const isSafe = overallPercentage >= 75;
-  const isWarning = overallPercentage >= 60 && overallPercentage < 75;
-  const zone = zoneColor(colors, overallPercentage);
+  const isSafe = hasData && overallPercentage >= 75;
+  const isWarning = hasData && overallPercentage >= 60 && overallPercentage < 75;
+  const zone = hasData ? zoneColor(colors, overallPercentage) : colors.textMuted;
+  const zoneLabel = !hasData ? 'No data' : isSafe ? 'Safe zone' : isWarning ? 'At risk' : 'Danger zone';
 
   let subtitle = "Here's where your attendance stands.";
-  if (totalClasses > 0) {
-    if (globalNeeded > 0) subtitle = `Critical — attend ${globalNeeded} more to reach 75%.`;
-    else if (globalSafeToSkip > 0) subtitle = `You're clear to skip ${globalSafeToSkip} without dropping below 75%.`;
-    else subtitle = "Perfectly balanced — don't miss the next one.";
+  if (!overall.hasData || totalClasses === 0) {
+    subtitle = 'No classes logged';
+  } else {
+    const req = overall.projections.requiredToTarget;
+    const safe = overall.projections.safeToMiss;
+    if (overall.currentStatus === 'below_target' && req.status === 'achievable' && req.required > 0) {
+      subtitle = `Critical — attend ${req.required} more to reach 75%.`;
+    } else if (overall.currentStatus === 'target_met' && safe.status === 'can_miss' && safe.safeToMiss > 0) {
+      subtitle = `You're clear to skip ${safe.safeToMiss} without dropping below 75%.`;
+    } else if (overall.currentStatus === 'target_met') {
+      subtitle = "Perfectly balanced — don't miss the next one.";
+    }
   }
-
-  const zoneLabel = isSafe ? 'Safe zone' : isWarning ? 'At risk' : 'Danger zone';
 
   return (
     <Screen>
@@ -86,6 +86,13 @@ export default function DashboardScreen() {
       >
         {loading ? (
           <DashboardSkeleton />
+        ) : isApiError && error ? (
+          <EmptyState
+            icon={<AlertTriangle size={26} color={colors.warning} strokeWidth={2} />}
+            title="Couldn't load dashboard"
+            description={error}
+            action={{ label: 'Retry', onPress: refresh }}
+          />
         ) : (
           <>
             <FadeInSlide>
@@ -111,24 +118,28 @@ export default function DashboardScreen() {
                   <AppText variant="eyebrow" tone="muted">
                     Overall attendance
                   </AppText>
-                  <View style={[styles.zoneChip, { backgroundColor: zone + '22', borderColor: colors.hairline }]}>
+                  <View style={[styles.zoneChip, { backgroundColor: hasData ? zone + '22' : colors.surfaceElevated, borderColor: colors.hairline }]}>
                     <View style={[styles.zoneDot, { backgroundColor: zone }]} />
                     <AppText style={[type.bodySmMedium, { color: zone }]}>{zoneLabel}</AppText>
                   </View>
                 </View>
 
                 <View style={styles.heroMetricRow}>
-                  <CountUpText
-                    value={overallPercentage}
-                    style={[type.metricHero, { color: colors.textPrimary }]}
-                    suffix=""
-                    decimals={1}
-                    duration={motion.timing.metric}
-                  />
+                  {hasData ? (
+                    <CountUpText
+                      value={overallPercentage}
+                      style={[type.metricHero, { color: colors.textPrimary }]}
+                      suffix=""
+                      decimals={1}
+                      duration={motion.timing.metric}
+                    />
+                  ) : (
+                    <AppText style={[type.metricHero, { color: colors.textPrimary }]}>--</AppText>
+                  )}
                   <AppText style={[type.metricLg, styles.percentSign, { color: colors.textMuted }]}>%</AppText>
                 </View>
 
-                <ProgressBar progress={overallPercentage} color={zone} height={6} />
+                <ProgressBar progress={hasData ? overallPercentage : 0} color={zone} height={6} />
 
                 <View style={[styles.divider, { backgroundColor: colors.hairline }]} />
 
@@ -146,6 +157,56 @@ export default function DashboardScreen() {
                   </Stat>
                 </View>
               </Card>
+            </FadeInSlide>
+
+            <FadeInSlide delay={110}>
+              <View style={styles.actionBannersContainer}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/calendar' as any);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open Attendance Calendar"
+                  style={styles.actionBannerPressable}
+                >
+                  <Card style={styles.actionBanner}>
+                    <View style={[styles.actionIconBox, { backgroundColor: colors.accentSubtle }]}>
+                      <CalendarDays size={20} color={colors.accent} strokeWidth={2} />
+                    </View>
+                    <View style={styles.actionBannerText}>
+                      <AppText variant="bodyMedium">Attendance Calendar</AppText>
+                      <AppText variant="bodySm" tone="secondary">
+                        Heatmaps & daily activity history
+                      </AppText>
+                    </View>
+                    <ChevronRight size={18} color={colors.textMuted} strokeWidth={2} />
+                  </Card>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/planner' as any);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open Weekly Planner"
+                  style={styles.actionBannerPressable}
+                >
+                  <Card style={styles.actionBanner}>
+                    <View style={[styles.actionIconBox, { backgroundColor: colors.accentSubtle }]}>
+                      <Calendar size={20} color={colors.accent} strokeWidth={2} />
+                    </View>
+                    <View style={styles.actionBannerText}>
+                      <AppText variant="bodyMedium">Weekly Planner</AppText>
+                      <AppText variant="bodySm" tone="secondary">
+                        Manage recurring Mon–Sat timetable
+                      </AppText>
+                    </View>
+                    <ChevronRight size={18} color={colors.textMuted} strokeWidth={2} />
+                  </Card>
+                </Pressable>
+              </View>
             </FadeInSlide>
 
             <View style={styles.sectionHeader}>
@@ -166,34 +227,44 @@ export default function DashboardScreen() {
               />
             ) : (
               <StaggeredList staggerDelay={55}>
-                {subjects.map((subject: any) => {
-                  const present = subject.present || 0;
-                  const total = subject.total || 0;
-                  const pct = subject.percentage || 0;
-                  const { needed, safeToSkip } = subjectStatus(present, total);
-                  const line =
-                    needed > 0
-                      ? { text: `${needed} more for 75%`, tone: colors.danger }
-                      : safeToSkip > 0
-                        ? { text: `Safe to skip ${safeToSkip}`, tone: colors.success }
-                        : { text: 'On track', tone: colors.warning };
-
+                {subjects.map((subject: SubjectIntelligenceItem) => {
                   return (
-                    <Card key={subject.subject} style={styles.subjectCard}>
-                      <View style={styles.subjectInfo}>
-                        <AppText variant="bodyMedium" numberOfLines={1}>
-                          {subject.subject}
-                        </AppText>
-                        <AppText style={[type.mono, styles.subjectMeta, { color: colors.textMuted }]}>
-                          {present} / {total} classes
-                        </AppText>
-                        <View style={styles.subjectStatusRow}>
-                          <View style={[styles.statusDot, { backgroundColor: line.tone }]} />
-                          <AppText style={[type.bodySmMedium, { color: line.tone }]}>{line.text}</AppText>
+                    <Pressable
+                      key={subject.subject}
+                      onPress={() => setSelectedSubjectName(subject.subject)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${subject.subject}, ${subject.hasData ? `${subject.present} of ${subject.total} classes` : 'no classes logged'}`}
+                      style={styles.subjectCardWrapper}
+                    >
+                      <Card style={styles.subjectCard}>
+                        <View style={styles.subjectInfo}>
+                          <View style={styles.subjectTitleRow}>
+                            <AppText variant="bodyMedium" numberOfLines={1} style={styles.subjectTitleText}>
+                              {subject.subject}
+                            </AppText>
+                            {subject.isCustomTarget && (
+                              <View
+                                style={[
+                                  styles.customTargetBadge,
+                                  { borderColor: colors.accentBorder, backgroundColor: colors.accentSubtle },
+                                ]}
+                              >
+                                <AppText style={[type.bodySmMedium, { color: colors.accent, fontSize: 11 }]}>
+                                  {subject.target}% target
+                                </AppText>
+                              </View>
+                            )}
+                          </View>
+                          <AppText style={[type.mono, styles.subjectMeta, { color: colors.textMuted }]}>
+                            {subject.hasData ? `${subject.present} / ${subject.total} classes` : 'No classes logged'}
+                          </AppText>
+                          <View style={styles.subjectStatusRow}>
+                            <SubjectIntelligenceBadge item={subject} />
+                          </View>
                         </View>
-                      </View>
-                      <ProgressRing percentage={pct} size={54} strokeWidth={5} />
-                    </Card>
+                        <ProgressRing percentage={subject.percentage} size={54} strokeWidth={5} />
+                      </Card>
+                    </Pressable>
                   );
                 })}
               </StaggeredList>
@@ -201,6 +272,14 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
+
+      <AttendanceIntelligenceSheet
+        visible={selectedSubject !== null}
+        onClose={() => setSelectedSubjectName(null)}
+        item={selectedSubject}
+        onUpdateTarget={setSubjectTarget}
+        onResetTarget={resetSubjectTarget}
+      />
     </Screen>
   );
 }
@@ -259,14 +338,51 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statDivider: { width: 1, height: 32 },
   sectionHeader: { marginBottom: space.lg },
+  subjectCardWrapper: {
+    marginBottom: space.md,
+  },
   subjectCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: space.md,
   },
   subjectInfo: { flex: 1, marginRight: space.lg, gap: space.xs },
+  subjectTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  subjectTitleText: {
+    flexShrink: 1,
+  },
+  customTargetBadge: {
+    paddingHorizontal: space.sm,
+    paddingVertical: 1,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
   subjectMeta: {},
-  subjectStatusRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.xs },
-  statusDot: { width: 6, height: 6, borderRadius: radius.pill },
+  subjectStatusRow: { flexDirection: 'row', alignItems: 'center', marginTop: space.xs },
+  actionBannersContainer: {
+    gap: space.sm,
+    marginBottom: space.xxl,
+  },
+  actionBannerPressable: {},
+  actionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: space.md,
+  },
+  actionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: space.md,
+  },
+  actionBannerText: {
+    flex: 1,
+    gap: 2,
+  },
 });
